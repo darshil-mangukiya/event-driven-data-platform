@@ -1,0 +1,11 @@
+{
+  "payment_id": "pay_contract_1001",
+  "order_id": "ord_contract_1001",
+  "customer_id": "cust_contract_001",
+  "amount": 240.0,
+  "currency": "USD",
+  "status": "captured",
+  "payment_method": "card",
+  "failure_code": null,
+  "risk_score": 0.08
+}

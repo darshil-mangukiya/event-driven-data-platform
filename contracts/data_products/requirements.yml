@@ -1,0 +1,196 @@
+# Requirements Traceability Source of Truth
+#
+# Machine-readable requirements, one row per modeled business question that
+# traces end-to-end: consumer -> business question -> data product -> metric
+# -> source event -> processing -> serving table -> API -> validation ->
+# SLO -> acceptance criteria.
+#
+# Generated reports (do not hand-edit; regenerate instead):
+#   evidence/data-products/data-product-catalog.md
+#   evidence/data-products/requirements-traceability.md
+# via: python -m platform_cli data-products trace <id>
+#      python scripts/generate_data_product_catalog.py
+#
+# ID convention: <CONSUMER-PREFIX>-<NNN>, zero-padded 3 digits, unique.
+
+registry_version: 1
+
+requirements:
+  - requirement_id: FIN-001
+    consumer_id: finance
+    business_question: "What is tenant revenue for a given period?"
+    product_id: revenue
+    metric: revenue
+    source_event: order.created
+    processing_logic: "processing-service order handler -> processed_orders -> tenant_metrics_hourly -> tenant_metrics_daily rollup"
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/revenue
+    validation_rule: processed_order_revenue_ranges
+    slo_reference: "Serving Freshness (Async Path)"
+    acceptance_criteria:
+      - "Revenue responses must be tenant scoped."
+      - "API value must reconcile within the configured tolerance (0.01) against processed_orders."
+    test_reference: "tests/test_tenant_access_and_cache.py::test_tenant_principal_blocks_cross_tenant_access"
+    status: active
+
+  - requirement_id: FIN-002
+    consumer_id: finance
+    business_question: "Does serving revenue reconcile to processed orders?"
+    product_id: revenue
+    metric: revenue
+    source_event: order.created
+    processing_logic: "scripts/reconcile_metrics.py::evaluate_reconciliation compares tenant_metrics_daily against a fresh aggregate over processed_orders"
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/revenue
+    validation_rule: reconciliation_revenue_tolerance
+    slo_reference: "Reconciliation Correctness"
+    acceptance_criteria:
+      - "Serving revenue must reconcile against the authoritative processed source within the configured tolerance."
+      - "A reconciliation mismatch must be flagged as failed with exact deltas, not silently ignored."
+    test_reference: "tests/test_reliability_governance_tooling.py::test_reconciliation_detects_metric_drift"
+    status: active
+
+  - requirement_id: FIN-003
+    consumer_id: finance
+    business_question: "What is the payment success/failure rate for a tenant?"
+    product_id: payment_health
+    metric: payment_success
+    source_event: payment.failed
+    processing_logic: "processing-service payment handler -> processed_payments -> tenant_metrics_daily rollup"
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/payment_success
+    validation_rule: raw_event_required_fields
+    slo_reference: "Serving Freshness (Async Path)"
+    acceptance_criteria:
+      - "Payment health responses must be tenant scoped."
+    test_reference: "tests/test_processing_logic.py::test_high_risk_failed_payment_creates_alert_signal"
+    status: active
+
+  - requirement_id: PROD-001
+    consumer_id: product
+    business_question: "How is customer/product activity changing?"
+    product_id: customer_activity
+    metric: customers
+    source_event: user.activity
+    processing_logic: "processing-service user handler -> processed_user_sessions -> tenant_metrics_daily rollup"
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/customers
+    validation_rule: raw_event_required_fields
+    slo_reference: "Serving Freshness (Async Path)"
+    acceptance_criteria:
+      - "Customer activity responses must be tenant scoped."
+    test_reference: "tests/test_tenant_access_and_cache.py::test_cache_key_is_stable_and_tenant_scoped"
+    status: active
+
+  - requirement_id: PROD-002
+    consumer_id: product
+    business_question: "Which products generate the most activity or revenue?"
+    product_id: product_performance
+    metric: product_performance
+    source_event: order.created
+    processing_logic: "query-time join of processed_orders against tenant_products metadata"
+    serving_table: processed_orders
+    api_endpoint: /metrics/product_performance
+    validation_rule: processed_order_revenue_ranges
+    slo_reference: "Serving Freshness (Async Path)"
+    acceptance_criteria:
+      - "Product performance responses must be tenant scoped."
+    test_reference: "tests/test_tenant_access_and_cache.py::test_tenant_principal_blocks_cross_tenant_access"
+    status: active
+
+  - requirement_id: MKT-001
+    consumer_id: marketing
+    business_question: "What marketing-performance proxy is available from the modeled event data?"
+    product_id: marketing_performance
+    metric: marketing_roi
+    source_event: order.created
+    processing_logic: "processed_orders with marketing_campaign_id -> tenant_metrics_daily rollup"
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/marketing_roi
+    validation_rule: processed_order_revenue_ranges
+    slo_reference: "Serving Freshness (Async Path)"
+    acceptance_criteria:
+      - "Marketing ROI responses must be tenant scoped."
+      - "This product must remain labeled a proxy, not a production attribution model."
+    test_reference: "tests/test_tenant_access_and_cache.py::test_tenant_principal_blocks_cross_tenant_access"
+    status: active
+
+  - requirement_id: OPS-001
+    consumer_id: operations
+    business_question: "Is event processing healthy?"
+    product_id: platform_health
+    metric: tenant_health_score
+    source_event: system.health
+    processing_logic: "query-time composite over tenant_metrics_daily, service_health_metrics, and alerts"
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/tenant_health_score
+    validation_rule: raw_event_freshness
+    slo_reference: "Streaming Availability"
+    acceptance_criteria:
+      - "A stale data product must surface a health/freshness signal rather than appearing silently healthy."
+    test_reference: "tests/test_observability.py::test_alert_rules_streaming_group_exists"
+    status: active
+
+  - requirement_id: OPS-002
+    consumer_id: operations
+    business_question: "Is processing lag increasing, and are failures accumulating in the DLQ?"
+    product_id: platform_health
+    metric: event_throughput
+    source_event: system.health
+    processing_logic: "Spark Structured Streaming query.lastProgress -> cloudscale_stream_processing_lag_seconds / cloudscale_stream_dlq_total"
+    serving_table: streaming_checkpoint_audit
+    api_endpoint: /metrics/event_throughput
+    validation_rule: cloudscale_stream_dlq_total
+    slo_reference: "Processing Lag"
+    acceptance_criteria:
+      - "Processing lag and DLQ growth must be observable via Prometheus, not only inferable after the fact."
+    test_reference: "tests/test_observability.py::test_grafana_dashboard_has_streaming_row"
+    status: active
+
+  - requirement_id: RISK-001
+    consumer_id: risk
+    business_question: "Are payment failures or platform signals indicating abnormal behavior?"
+    product_id: payment_health
+    metric: payment_success
+    source_event: payment.failed
+    processing_logic: "processing-service payment handler flags high-risk failed payments as an alert signal"
+    serving_table: alerts
+    api_endpoint: /alerts
+    validation_rule: raw_event_required_fields
+    slo_reference: "Serving Freshness (Async Path)"
+    acceptance_criteria:
+      - "High-risk failed payments must produce an alert signal, not be silently recorded."
+    test_reference: "tests/test_processing_logic.py::test_high_risk_failed_payment_creates_alert_signal"
+    status: active
+
+  - requirement_id: RISK-002
+    consumer_id: risk
+    business_question: "Which alerts require review?"
+    product_id: platform_health
+    metric: tenant_health_score
+    source_event: system.alert
+    processing_logic: "alerts table populated by processing-service and reliability/observability signals; surfaced via ops-console and /alerts"
+    serving_table: alerts
+    api_endpoint: /alerts
+    validation_rule: raw_event_required_fields
+    slo_reference: "DLQ Rate"
+    acceptance_criteria:
+      - "Alerts must be tenant scoped and queryable without cross-tenant leakage."
+    test_reference: "tests/test_tenant_access_and_cache.py::test_tenant_principal_blocks_cross_tenant_access"
+    status: active
+
+  - requirement_id: OPS-003
+    consumer_id: operations
+    business_question: "Are data products fresh?"
+    product_id: platform_health
+    metric: tenant_health_score
+    source_event: system.health
+    processing_logic: "cloudscale_serving_metrics_staleness_seconds gauge, refreshed from tenant_metrics_daily.updated_at and stream_window_metrics.updated_at by ops-console"
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/tenant_health_score
+    validation_rule: raw_event_freshness
+    slo_reference: "Event-Processing Freshness"
+    acceptance_criteria:
+      - "A stale data product must surface a health/freshness signal rather than appearing silently healthy."
+    test_reference: "tests/test_observability.py::test_grafana_dashboard_panels_reference_real_metrics"
+    status: active

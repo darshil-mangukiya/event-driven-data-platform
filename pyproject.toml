@@ -1,0 +1,26 @@
+[project]
+name = "cloud-scale-data-platform"
+version = "0.1.0"
+description = "Production-style event-driven multi-tenant analytics data platform MVP."
+requires-python = ">=3.11"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["services/shared"]
+markers = [
+    "integration: tests that exercise multi-component flows without requiring external services",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+exclude = [".test-deps", ".venv", "venv", "__pycache__"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+ignore = ["B008", "E501", "UP017", "UP042"]
+
+[tool.ruff.lint.per-file-ignores]
+"airflow/dags/cloudscale_batch_jobs_dag.py" = ["I001"]
+"airflow/dags/cloudscale_operational_checks_dag.py" = ["I001"]
+"kafka/create_topics.py" = ["I001"]

@@ -1,0 +1,160 @@
+{
+  "schema_version": 1,
+  "executed_at": "2026-09-03T17:45:16.956736Z",
+  "source_sha": "fbb464d72049913b1b67a72af410746f3d90bc3c",
+  "source_state": "base source SHA plus documented runtime-enablement changes",
+  "environment": {
+    "scope": "local only",
+    "platform": "macOS arm64",
+    "host_cpu_count": 14,
+    "container_runtime": "Docker Desktop 29.5.3",
+    "kubernetes": "disposable kind cluster p6-local-validation",
+    "cloud_resources": 0
+  },
+  "scenarios": [
+    {
+      "scenario": "Kafka end-to-end event flow",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "python scripts/run_local_e2e.py --settle-seconds 8",
+      "metric": "one order event produced one analytics result",
+      "evidence_paths": ["evidence/runtime/kafka/end_to_end.md"],
+      "limitation": "single-node local broker and synthetic event"
+    },
+    {
+      "scenario": "Kafka redelivery and inbox idempotency",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "controlled processing stop, group offset reset, and restart",
+      "metric": "redelivery observed; duplicate database effects 0",
+      "evidence_paths": ["evidence/runtime/kafka/delivery_semantics.json"],
+      "limitation": "bounded single-event experiment; at-least-once, not exactly-once"
+    },
+    {
+      "scenario": "DLQ inspection and corrected replay",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "python scripts/dlq_tool.py inspect; python scripts/dlq_tool.py replay --event-timestamp-now",
+      "metric": "one late event inspected and one replay audit recorded",
+      "evidence_paths": ["evidence/runtime/retry_dlq_replay/result.md"],
+      "limitation": "global business-key uniqueness prevented a second durable business effect"
+    },
+    {
+      "scenario": "Schema compatibility",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "python scripts/validate_schema_registry.py --all --pretty",
+      "metric": "5 subjects; 2 compatible accepted; 2 incompatible rejected",
+      "evidence_paths": ["evidence/runtime/schema_registry/result.json"],
+      "limitation": "project-native registry, not Confluent Schema Registry"
+    },
+    {
+      "scenario": "PostgreSQL FORCE RLS",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "python scripts/validate_tenant_rls.py --live",
+      "metric": "11 protected tables; cross-tenant visible rows 0",
+      "evidence_paths": ["evidence/runtime/postgres_rls/result.md"],
+      "limitation": "local PostgreSQL 16"
+    },
+    {
+      "scenario": "Redis isolation and fallback",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "tenant cache requests before, during, and after Redis interruption",
+      "metric": "tenant-specific keys; cache miss then hit; HTTP 200 fallback",
+      "evidence_paths": ["evidence/runtime/redis/result.md"],
+      "limitation": "latency comparison was not a controlled repeated benchmark"
+    },
+    {
+      "scenario": "Spark Structured Streaming event-time behavior",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "python scripts/run_streaming_runtime_experiment.py",
+      "metric": "5 queries; on-time, out-of-order, duplicate, and late classifications verified",
+      "evidence_paths": ["evidence/runtime/streaming/watermark_matrix.csv", "evidence/runtime/streaming/RESULT.md"],
+      "limitation": "bounded local micro-batch run"
+    },
+    {
+      "scenario": "Spark checkpoint restart",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "restart spark-streaming with persisted checkpoint and publish additional events",
+      "metric": "checkpoint resumed and new offsets were consumed",
+      "evidence_paths": ["evidence/runtime/streaming/RESULT.md"],
+      "limitation": "restart recovery, not disaster recovery"
+    },
+    {
+      "scenario": "dbt build",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "dbt parse && dbt build --project-dir dbt --profiles-dir dbt",
+      "metric": "PASS=17 WARN=0 ERROR=0 SKIP=0",
+      "evidence_paths": ["evidence/runtime/dbt/result.md"],
+      "limitation": "local PostgreSQL target"
+    },
+    {
+      "scenario": "Metric reconciliation",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "python scripts/reconcile_metrics.py; python scripts/reconcile_kafka_dbt_metrics.py",
+      "metric": "9 metric checks and 14 Kafka/dbt rows reconciled with zero critical mismatch",
+      "evidence_paths": ["evidence/runtime/reconciliation/result.md"],
+      "limitation": "synthetic local data"
+    },
+    {
+      "scenario": "Airflow bounded DAG run",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "airflow dags test cloudscale_operational_checks 2026-09-03; CLOUDSCALE_SPARK_WINDOW_DAYS=365 airflow dags test cloudscale_batch_jobs 2026-09-03T17:43:00+00:00",
+      "metric": "2 DAGs imported, 22 tasks modeled; 12-task operational and 10-task batch DAGs succeeded",
+      "evidence_paths": ["evidence/runtime/airflow/result.md"],
+      "limitation": "local LocalExecutor; batch maintenance and backfill operations use dry-run modes and retained synthetic data"
+    },
+    {
+      "scenario": "Prometheus and Grafana",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "Prometheus HTTP API target/rule/query checks and Grafana provisioning API checks",
+      "metric": "7 targets up; 19 rules loaded; 33/33 panel queries valid",
+      "evidence_paths": ["evidence/runtime/prometheus/PROMETHEUS_VALIDATION.md", "evidence/runtime/grafana/result.md"],
+      "limitation": "local run; alert routing not configured"
+    },
+    {
+      "scenario": "OpenTelemetry distributed tracing",
+      "status": "EXECUTED AND VERIFIED LOCALLY",
+      "command": "start temporary local Jaeger OTLP/HTTP backend; post one synthetic ingestion event; query Jaeger trace API",
+      "metric": "trace 33e828ea6a15e24d82e4be1050d94a96; 7 spans; 2 services; zero errors; W3C context continued across Kafka",
+      "evidence_paths": ["evidence/runtime/opentelemetry/result.md", "evidence/runtime/opentelemetry/TRACE_VALIDATION.md", "evidence/runtime/opentelemetry/trace_summary.json"],
+      "limitation": "one synthetic local trace; PostgreSQL is not instrumented; backend is not in the default Compose stack"
+    },
+    {
+      "scenario": "Local Kubernetes and Helm lifecycle",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "kind create cluster; helm install/upgrade/rollback; kubectl rollout status",
+      "metric": "8/8 workload pods ready; Helm revisions 1-4; deleted pod replaced in 3 seconds",
+      "evidence_paths": ["evidence/runtime/kubernetes/result.md", "evidence/runtime/helm/result.md"],
+      "limitation": "single-node local cluster, removed after capture"
+    },
+    {
+      "scenario": "Kafka-lag-driven KEDA autoscaling",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "install KEDA 2.20.2; apply ScaledObject; submit 20K-event backlog",
+      "metric": "replicas 1 -> 4 -> 5 -> 1 while lag 17000 -> 0",
+      "evidence_paths": ["evidence/runtime/keda/autoscaling_timeline.csv", "evidence/runtime/keda/result.md"],
+      "limitation": "local scaler behavior; throughput remains bounded by partitions and dependencies"
+    },
+    {
+      "scenario": "Load profiles",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "python scripts/load_test_events.py with deterministic profile arguments",
+      "metric": "1K, 10K, three-tenant 1.5K, and 20K backlog completed with zero batch failures",
+      "evidence_paths": ["evidence/runtime/performance/README.md", "evidence/runtime/performance/smoke_1k.json", "evidence/runtime/performance/small_10k.json", "evidence/runtime/performance/noisy_neighbor_3_tenant_1500.json", "evidence/runtime/performance/keda_backlog_20k.json"],
+      "limitation": "latency is batch API acceptance latency, not per-event end-to-end latency; no tuned comparison"
+    },
+    {
+      "scenario": "Authoritative regression and static validation",
+      "status": "EXECUTED AND VERIFIED",
+      "command": "pytest; ruff; contract, governance, Helm, Terraform, Prometheus, Compose, compile, privacy, and diff checks",
+      "metric": "466 passed, 9 skipped; all listed static validators passed",
+      "evidence_paths": ["README.md", "evidence/runtime/README.md"],
+      "limitation": "pytest emitted deprecation warnings; skipped tests remain explicitly skipped"
+    },
+    {
+      "scenario": "Terraform AWS reference",
+      "status": "CONFIGURATION VALIDATED / NEVER CLOUD DEPLOYED",
+      "command": "terraform init -backend=false; terraform fmt -check -recursive; terraform validate",
+      "metric": "configuration valid; cloud resources created 0",
+      "evidence_paths": ["docs/cloud-deployment.md"],
+      "limitation": "no plan, apply, credentials, or cloud execution"
+    }
+  ]
+}

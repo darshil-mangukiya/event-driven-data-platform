@@ -1,0 +1,23 @@
+{
+  "causation_id": null,
+  "correlation_id": "corr-checkout-1001",
+  "event_type": "order.created",
+  "idempotency_key": "checkout-ord-1001-created",
+  "payload": {
+    "channel": "web",
+    "currency": "USD",
+    "customer_id": "cust_1001",
+    "discount_amount": 5.0,
+    "marketing_campaign_id": "paid-search-q2",
+    "order_id": "ord_1001",
+    "product_id": "prod_001",
+    "quantity": 2,
+    "region": "na",
+    "status": "created",
+    "unit_price": 49.0
+  },
+  "payload_version": 1,
+  "source_service": "checkout-api",
+  "tenant_id": "tenant_demo",
+  "trace_id": "trace-demo-1001"
+}

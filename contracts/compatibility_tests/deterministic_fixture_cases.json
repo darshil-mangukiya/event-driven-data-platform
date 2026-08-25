@@ -1,0 +1,28 @@
+{
+  "cases": [
+    {
+      "name": "fixture_compatible_optional_field_addition",
+      "old_schema": "compatibility_tests/fixtures/compatible_optional_field_add_old.schema.json",
+      "new_schema": "compatibility_tests/fixtures/compatible_optional_field_add_new.schema.json",
+      "expected": "compatible"
+    },
+    {
+      "name": "fixture_compatible_safe_change",
+      "old_schema": "compatibility_tests/fixtures/compatible_safe_change_old.schema.json",
+      "new_schema": "compatibility_tests/fixtures/compatible_safe_change_new.schema.json",
+      "expected": "compatible"
+    },
+    {
+      "name": "fixture_breaking_new_required_field",
+      "old_schema": "compatibility_tests/fixtures/breaking_required_field_old.schema.json",
+      "new_schema": "compatibility_tests/fixtures/breaking_required_field_new.schema.json",
+      "expected": "breaking"
+    },
+    {
+      "name": "fixture_breaking_type_change",
+      "old_schema": "compatibility_tests/fixtures/breaking_type_change_old.schema.json",
+      "new_schema": "compatibility_tests/fixtures/breaking_type_change_new.schema.json",
+      "expected": "breaking"
+    }
+  ]
+}

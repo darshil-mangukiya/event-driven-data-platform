@@ -1,0 +1,8 @@
+{
+  "payment_id": "pay_contract_bad",
+  "order_id": "ord_contract_1001",
+  "customer_id": "cust_contract_001",
+  "amount": -20,
+  "status": "refunded",
+  "payment_method": "card"
+}

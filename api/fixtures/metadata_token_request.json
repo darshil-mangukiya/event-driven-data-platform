@@ -1,0 +1,9 @@
+{
+  "expires_in_seconds": 3600,
+  "role": "analyst",
+  "scopes": [
+    "metrics:read"
+  ],
+  "tenant_id": "tenant_demo",
+  "user_id": "analyst_demo"
+}

@@ -1,0 +1,10 @@
+{
+  "user_id": "cust_contract_001",
+  "action": "checkout_started",
+  "session_id": "sess_contract_001",
+  "page": "/checkout",
+  "referrer": "paid-search",
+  "duration_seconds": 180,
+  "plan": "growth",
+  "marketing_campaign_id": "paid-search"
+}

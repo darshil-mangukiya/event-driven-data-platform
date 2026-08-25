@@ -1,0 +1,202 @@
+{
+  "checks": [
+    {
+      "command": "ruff check --no-cache .",
+      "name": "ruff_lint",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_event_contracts.py",
+      "name": "event_contracts",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/check_contract_compatibility.py",
+      "name": "contract_compatibility",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_catalog.py",
+      "name": "catalog",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_metric_contracts.py",
+      "name": "metric_contracts",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_privacy_catalog.py",
+      "name": "privacy_catalog",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/schema_drift_report.py",
+      "name": "schema_drift",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_tenant_rls.py",
+      "name": "rls_static",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_lineage.py",
+      "name": "lineage",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_data_products.py",
+      "name": "data_products",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_asyncapi.py",
+      "name": "asyncapi",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_evidence_consistency.py --skip-test-count",
+      "name": "evidence_consistency",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python scripts/validate_auth_posture.py",
+      "name": "auth_posture",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": "docker compose -f docker-compose.yml config --quiet",
+      "name": "compose_config",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": "docker compose -f docker-compose.yml --profile streaming config --quiet",
+      "name": "compose_streaming_config",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": "terraform -chdir=infra/aws/terraform fmt -check",
+      "name": "terraform_fmt",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": "helm lint deploy/helm/cloudscale",
+      "name": "helm_lint",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "command": ".venv/bin/python -c import sys; sys.path.insert(0,'.'); sys.path.insert(0,'services/shared'); import ai_incident_copilot.copilot",
+      "name": "ai_incident_copilot_importable",
+      "returncode": 0,
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "Registry compatibility fixtures were exercised against a running local service.",
+      "evidence_file": "evidence/validation/schema-registry-verification.md",
+      "evidence_file_exists": true,
+      "name": "kafka_schema_registry_runtime",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "All 8 packaged workloads reached Ready in a local kind cluster.",
+      "evidence_file": "evidence/validation/kubernetes-verification.md",
+      "evidence_file_exists": true,
+      "name": "kubernetes_execution",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "Deployed from the packaged chart, matched the raw-manifest result.",
+      "evidence_file": "evidence/validation/helm-verification.md",
+      "evidence_file_exists": true,
+      "name": "helm_packaging",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "Operator and ScaledObject accepted and lag readable; scale-up and scale-down were not observed.",
+      "evidence_file": "evidence/validation/keda-autoscaling-live-verification.md",
+      "evidence_file_exists": true,
+      "name": "keda_autoscaling",
+      "status": "CONFIGURATION_ONLY"
+    },
+    {
+      "detail": "fmt/validate clean; no apply, no AWS resources provisioned.",
+      "evidence_file": "evidence/validation/terraform-verification.md",
+      "evidence_file_exists": true,
+      "name": "terraform_aws_target",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "Verified against local Keycloak, including rejection cases.",
+      "evidence_file": "evidence/validation/oidc-verification.md",
+      "evidence_file_exists": true,
+      "name": "oidc_jwks",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "Full live test matrix passed after two runtime defects were identified and corrected.",
+      "evidence_file": "evidence/validation/rls-runtime-verification.md",
+      "evidence_file_exists": true,
+      "name": "rls_runtime_enforcement",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "A continuous trace crossed the Kafka boundary and was observed in local Jaeger.",
+      "evidence_file": "evidence/validation/opentelemetry-verification.md",
+      "evidence_file_exists": true,
+      "name": "opentelemetry_tracing",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "Offline provider only; schema validation and human-approval controls are covered by tests.",
+      "evidence_file": "ai_incident_copilot/AI_CONTROL_BOUNDARIES.md",
+      "evidence_file_exists": true,
+      "name": "ai_incident_copilot_controls",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "Existing indexing confirmed used (Index Scan, not Seq Scan) via live EXPLAIN ANALYZE.",
+      "evidence_file": "docs/performance/postgres-optimization.md",
+      "evidence_file_exists": true,
+      "name": "postgres_performance_audit",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "Cache fallback behavior and degradation measurements are recorded.",
+      "evidence_file": "evidence/validation/redis-degradation-performance.md",
+      "evidence_file_exists": true,
+      "name": "redis_degradation",
+      "status": "VERIFIED"
+    },
+    {
+      "detail": "Consumer-lag instrumentation and alert configuration are covered by tests.",
+      "evidence_file": "tests/test_consumer_lag_metric.py",
+      "evidence_file_exists": true,
+      "name": "kafka_dependency_metrics",
+      "status": "VERIFIED"
+    }
+  ],
+  "counts_by_status": {
+    "CONFIGURATION_ONLY": 1,
+    "VERIFIED": 29
+  },
+  "overall_status": "VERIFIED",
+  "total_checks": 30
+}

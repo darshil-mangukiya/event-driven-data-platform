@@ -1,0 +1,3 @@
+query,table,row_count_at_seed_scale,index_used,plan_node,execution_time_ms,notes
+revenue_by_tenant_and_date_range,tenant_metrics_daily,6,tenant_metrics_daily_pkey,Index Scan Backward,0.040,"Real EXPLAIN ANALYZE against live seeded data. PK (tenant_id, metric_date) already covers this query exactly."
+product_performance_by_tenant_and_product,processed_orders,880,idx_processed_orders_product,Index Scan,0.083,"Composite index (tenant_id, product_id, event_timestamp) already existed pre-audit; confirmed used, not a Seq Scan."

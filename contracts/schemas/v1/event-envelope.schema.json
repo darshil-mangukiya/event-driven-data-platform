@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform.local/schemas/v1/event-envelope.schema.json",
+  "title": "Platform Event Envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "event_id",
+    "tenant_id",
+    "event_type",
+    "event_timestamp",
+    "source_service",
+    "payload_version",
+    "payload",
+    "trace_id",
+    "correlation_id",
+    "idempotency_key"
+  ],
+  "properties": {
+    "event_id": {"type": "string", "minLength": 1},
+    "tenant_id": {"type": "string", "minLength": 2, "maxLength": 80},
+    "event_type": {"type": "string"},
+    "event_timestamp": {"type": "string", "format": "date-time"},
+    "source_service": {"type": "string", "minLength": 2},
+    "payload_version": {"type": "integer", "minimum": 1},
+    "payload": {"type": "object"},
+    "trace_id": {"type": "string", "minLength": 1},
+    "correlation_id": {"type": "string", "minLength": 1},
+    "causation_id": {"type": ["string", "null"]},
+    "idempotency_key": {"type": "string", "minLength": 1},
+    "schema_ref": {"type": ["string", "null"]}
+  }
+}

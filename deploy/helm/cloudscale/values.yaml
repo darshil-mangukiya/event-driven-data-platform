@@ -1,0 +1,73 @@
+namespace: cloudscale
+
+image:
+  tag: local
+  pullPolicy: IfNotPresent
+
+services:
+  ingestion:
+    name: ingestion-service
+    image: cloudscale-ingestion-service
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 192Mi}
+      limits: {cpu: 500m, memory: 384Mi}
+  processing:
+    name: processing-service
+    image: cloudscale-processing-service
+    replicas: 1
+    resources:
+      requests: {cpu: 150m, memory: 256Mi}
+      limits: {cpu: 750m, memory: 512Mi}
+  analytics:
+    name: analytics-service
+    image: cloudscale-analytics-service
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 192Mi}
+      limits: {cpu: 500m, memory: 384Mi}
+  metadata:
+    name: metadata-service
+    image: cloudscale-metadata-service
+    replicas: 1
+    resources:
+      requests: {cpu: 100m, memory: 192Mi}
+      limits: {cpu: 500m, memory: 384Mi}
+
+config:
+  environment: local
+  logLevel: INFO
+  authMode: dev_compat
+  postgresDb: data_platform
+  kafkaBootstrapServers: "kafka:9092"
+
+secrets:
+  postgresUser: platform
+  postgresPassword: platform
+  jwtSecret: local-development-secret-change-me
+  # Non-superuser runtime roles created automatically by
+  # database/security/tenant_rls.sql (see database/init/004_apply_tenant_rls.sql).
+  # postgresUser/Password above (a PostgreSQL SUPERUSER) is used only for
+  # postgres bootstrap and any service that hasn't been given a scoped
+  # DATABASE_URL override in 20-services.yaml — see
+  # evidence/validation/application-rls-runtime-verification.md.
+  tenantScopedUser: platform_tenant_scoped
+  tenantScopedPassword: local-tenant-scoped-change-me
+  adminBypassUser: platform_admin_bypass
+  adminBypassPassword: local-admin-bypass-change-me
+
+postgres:
+  image: postgres:16
+  storage: 1Gi
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+redis:
+  image: redis:7
+  resources:
+    requests: {cpu: 50m, memory: 64Mi}
+    limits: {cpu: 250m, memory: 128Mi}
+
+observability:
+  enabled: false  # External to this chart; see docs/LIMITATIONS.md.

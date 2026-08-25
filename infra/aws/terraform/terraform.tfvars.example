@@ -1,0 +1,14 @@
+project_name = "data-platform-system"
+environment  = "dev"
+aws_region   = "us-west-2"
+
+vpc_cidr = "10.42.0.0/16"
+
+service_cpu    = 512
+service_memory = 1024
+
+postgres_instance_class = "db.t4g.medium"
+redis_node_type         = "cache.t4g.small"
+kafka_broker_count      = 3
+
+enable_deletion_protection = false

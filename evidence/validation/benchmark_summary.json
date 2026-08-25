@@ -1,0 +1,27 @@
+{
+  "honesty_note": "This is local benchmark evidence. Production throughput requires separate distributed load validation.",
+  "mode": "sample_local_benchmark",
+  "next_commands": [
+    "python scripts/load_test_events.py --batches 20 --batch-size 50",
+    "k6 run benchmarks/k6/analytics_read_load.js"
+  ],
+  "sample": {
+    "batch_size": 100,
+    "batches": 50,
+    "benchmark_name": "sample_local_ingestion_batch_load",
+    "created_at": "2026-05-25T16:30:00Z",
+    "elapsed_seconds": 8.4172,
+    "events": 5000,
+    "events_per_second": 594.0244,
+    "failure_batches": 0,
+    "failure_rate": 0.0,
+    "local_scope_note": "Representative sample artifact only. Run scripts/load_test_events.py against Docker Compose to produce measured local results.",
+    "max_latency_ms": 224.12,
+    "p50_latency_ms": 71.42,
+    "p95_latency_ms": 134.88,
+    "p99_latency_ms": 181.25,
+    "sample_artifact": true,
+    "target_url": "http://localhost:8001",
+    "tenant_id": "tenant_demo"
+  }
+}

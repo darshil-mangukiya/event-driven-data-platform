@@ -1,0 +1,33 @@
+{
+  "scenarios": [
+    {
+      "name": "analytics_service_unavailable",
+      "target": "http://localhost:8003/health",
+      "expected_behavior": "Dashboard and direct analytics calls should fail fast while ingestion and processing continue.",
+      "owner": "data-platform",
+      "severity": "high"
+    },
+    {
+      "name": "redis_unavailable",
+      "target": "redis://localhost:6379/0",
+      "expected_behavior": "Analytics cache hit rate drops and APIs should fall back to PostgreSQL in a production-hardened implementation.",
+      "owner": "data-platform",
+      "severity": "medium"
+    },
+    {
+      "name": "kafka_unavailable",
+      "target": "localhost:9092",
+      "expected_behavior": "Ingestion publish failures increase, no event loss is accepted without client retry or producer retry success.",
+      "owner": "data-platform",
+      "severity": "critical"
+    },
+    {
+      "name": "postgres_unavailable",
+      "target": "localhost:5432",
+      "expected_behavior": "Processing and analytics fail health checks; ingestion can validate but cannot complete end-to-end flow.",
+      "owner": "data-platform",
+      "severity": "critical"
+    }
+  ]
+}
+

@@ -1,0 +1,25 @@
+{
+  "batch_size": 200,
+  "batches": 100,
+  "benchmark_name": "keda_backlog_20k",
+  "created_at": "2026-09-03T03:06:23.066724+00:00",
+  "elapsed_seconds": 17.7734,
+  "events": 20000,
+  "events_per_second": 1125.2795,
+  "failure_batches": 0,
+  "failure_rate": 0.0,
+  "host_cpu_count": 14,
+  "host_platform": "macOS-26.6.2-arm64-arm-64bit",
+  "hot_tenant_share": 1.0,
+  "local_scope_note": "Local benchmark runner; production-scale figures require distributed load generation.",
+  "max_latency_ms": 17672.2795,
+  "p50_latency_ms": 17375.6956,
+  "p95_latency_ms": 17592.2632,
+  "p99_latency_ms": 17617.9016,
+  "seed": 62021,
+  "target_url": "local kind ingestion port-forward",
+  "tenant_batch_distribution": {
+    "tenant_demo": 100
+  },
+  "tenant_id": "tenant_demo"
+}

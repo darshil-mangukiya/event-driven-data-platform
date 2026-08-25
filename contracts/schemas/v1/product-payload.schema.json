@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform.local/schemas/v1/product-payload.schema.json",
+  "title": "Product Payload",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["product_id", "sku", "name", "category", "price"],
+  "properties": {
+    "product_id": {"type": "string"},
+    "sku": {"type": "string"},
+    "name": {"type": "string"},
+    "category": {"type": "string"},
+    "price": {"type": "number", "minimum": 0},
+    "inventory_delta": {"type": "integer"},
+    "active": {"type": "boolean"}
+  }
+}
+

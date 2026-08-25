@@ -1,0 +1,281 @@
+{
+  "title": "Event-Driven Data Platform",
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 3,
+  "uid": "cloudscale-main",
+  "panels": [
+    {
+      "id": 1,
+      "type": "timeseries",
+      "title": "API latency by service",
+      "gridPos": {"x": 0, "y": 0, "w": 12, "h": 8},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(platform_api_request_latency_seconds_bucket[5m])) by (le, service))"}]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Kafka events processed",
+      "gridPos": {"x": 12, "y": 0, "w": 6, "h": 8},
+      "targets": [{"expr": "sum(increase(platform_kafka_events_processed_total[15m])) by (status)"}]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Cache hit rate",
+      "gridPos": {"x": 18, "y": 0, "w": 6, "h": 8},
+      "targets": [{"expr": "sum(rate(platform_cache_events_total{outcome=\"hit\"}[5m])) / sum(rate(platform_cache_events_total{outcome=~\"hit|miss\"}[5m]))"}]
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "API request rate by service",
+      "description": "platform_api_requests_total rate, by service. Covers ingestion, analytics, processing, metadata, ops-console, demo-dashboard.",
+      "gridPos": {"x": 0, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(platform_api_requests_total[5m])) by (service)", "legendFormat": "{{service}}"}
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "API error rate by service",
+      "description": "platform_api_requests_total rate for 5xx status codes, by service.",
+      "gridPos": {"x": 12, "y": 8, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(platform_api_requests_total{status_code=~\"5..\"}[5m])) by (service)", "legendFormat": "{{service}} 5xx"}
+      ]
+    },
+
+    {
+      "id": 100,
+      "type": "row",
+      "title": "Structured Streaming Pipeline",
+      "collapsed": false,
+      "gridPos": {"x": 0, "y": 16, "w": 24, "h": 1}
+    },
+    {
+      "id": 101,
+      "type": "timeseries",
+      "title": "Event Throughput",
+      "description": "Raw events received per second, by Kafka topic (cloudscale_stream_events_received_total).",
+      "gridPos": {"x": 0, "y": 17, "w": 8, "h": 8},
+      "targets": [{"expr": "sum(rate(cloudscale_stream_events_received_total[5m])) by (topic)", "legendFormat": "{{topic}}"}]
+    },
+    {
+      "id": 102,
+      "type": "timeseries",
+      "title": "Processing Lag",
+      "description": "cloudscale_stream_processing_lag_seconds and cloudscale_stream_watermark_lag_seconds, by query. Alert: StreamingProcessingLagHigh > 120s for 5m.",
+      "gridPos": {"x": 8, "y": 17, "w": 8, "h": 8},
+      "targets": [
+        {"expr": "cloudscale_stream_processing_lag_seconds", "legendFormat": "processing lag - {{query}}"},
+        {"expr": "cloudscale_stream_watermark_lag_seconds", "legendFormat": "watermark lag - {{query}}"}
+      ]
+    },
+    {
+      "id": 103,
+      "type": "timeseries",
+      "title": "Micro-Batch Duration (p95)",
+      "description": "cloudscale_stream_batch_duration_seconds, by query.",
+      "gridPos": {"x": 16, "y": 17, "w": 8, "h": 8},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(cloudscale_stream_batch_duration_seconds_bucket[5m])) by (le, query))"}]
+    },
+    {
+      "id": 114,
+      "type": "timeseries",
+      "title": "Events Processed by Domain",
+      "description": "cloudscale_stream_events_processed_total rate, by event_domain. Shows actual throughput that reached the serving layer.",
+      "gridPos": {"x": 0, "y": 25, "w": 8, "h": 8},
+      "targets": [{"expr": "sum(rate(cloudscale_stream_events_processed_total[5m])) by (event_domain)", "legendFormat": "{{event_domain}}"}]
+    },
+    {
+      "id": 115,
+      "type": "timeseries",
+      "title": "Validation Failure Rate",
+      "description": "cloudscale_stream_events_failed_total rate, by reason. Alert: StreamingExcessiveValidationFailureRate > 1/s for 10m.",
+      "gridPos": {"x": 8, "y": 25, "w": 8, "h": 8},
+      "targets": [{"expr": "sum(rate(cloudscale_stream_events_failed_total[5m])) by (reason)", "legendFormat": "{{reason}}"}]
+    },
+    {
+      "id": 116,
+      "type": "timeseries",
+      "title": "Micro-Batches Processed",
+      "description": "cloudscale_stream_batches_total rate, by query and outcome.",
+      "gridPos": {"x": 16, "y": 25, "w": 8, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(cloudscale_stream_batches_total{outcome=\"success\"}[5m])) by (query)", "legendFormat": "{{query}} ok"},
+        {"expr": "sum(rate(cloudscale_stream_batches_total{outcome=\"failed\"}[5m])) by (query)", "legendFormat": "{{query}} fail"}
+      ]
+    },
+    {
+      "id": 117,
+      "type": "timeseries",
+      "title": "Records per Micro-Batch (p95)",
+      "description": "cloudscale_stream_records_per_batch histogram, by query.",
+      "gridPos": {"x": 0, "y": 33, "w": 8, "h": 8},
+      "targets": [{"expr": "histogram_quantile(0.95, sum(rate(cloudscale_stream_records_per_batch_bucket[5m])) by (le, query))"}]
+    },
+
+    {
+      "id": 200,
+      "type": "row",
+      "title": "Late Events & Deduplication",
+      "collapsed": false,
+      "gridPos": {"x": 0, "y": 41, "w": 24, "h": 1}
+    },
+    {
+      "id": 104,
+      "type": "timeseries",
+      "title": "Watermark / Late Events",
+      "description": "cloudscale_stream_events_late_total rate, by classification (on_time excluded — only the exceptions are worth watching here).",
+      "gridPos": {"x": 0, "y": 42, "w": 8, "h": 8},
+      "targets": [{"expr": "sum(rate(cloudscale_stream_events_late_total{classification!=\"on_time\"}[10m])) by (classification)"}]
+    },
+    {
+      "id": 118,
+      "type": "stat",
+      "title": "Recent Late Events (24h, DB)",
+      "description": "cloudscale_stream_late_events_recent from ops-console DB-derived gauge, by classification.",
+      "gridPos": {"x": 8, "y": 42, "w": 8, "h": 8},
+      "targets": [{"expr": "cloudscale_stream_late_events_recent", "legendFormat": "{{classification}}"}]
+    },
+    {
+      "id": 105,
+      "type": "timeseries",
+      "title": "Duplicate Events",
+      "description": "cloudscale_stream_events_duplicate_total rate (same-micro-batch duplicates; see docs/streaming_architecture.md for the cross-batch dedup tradeoff).",
+      "gridPos": {"x": 16, "y": 42, "w": 8, "h": 8},
+      "targets": [{"expr": "sum(rate(cloudscale_stream_events_duplicate_total[10m])) by (event_domain)"}]
+    },
+
+    {
+      "id": 300,
+      "type": "row",
+      "title": "DLQ & Sink Health",
+      "collapsed": false,
+      "gridPos": {"x": 0, "y": 50, "w": 24, "h": 1}
+    },
+    {
+      "id": 106,
+      "type": "timeseries",
+      "title": "DLQ Volume",
+      "description": "cloudscale_stream_dlq_total increase, by reason. Alert: StreamingDlqGrowthHigh > 50 in 10m.",
+      "gridPos": {"x": 0, "y": 51, "w": 8, "h": 8},
+      "targets": [{"expr": "sum(increase(cloudscale_stream_dlq_total[10m])) by (reason)"}]
+    },
+    {
+      "id": 107,
+      "type": "stat",
+      "title": "Sink Failures (15m)",
+      "description": "cloudscale_stream_sink_failures_total increase, by sink. Alert: StreamingSinkFailuresHigh > 0 in 5m (critical).",
+      "gridPos": {"x": 8, "y": 51, "w": 8, "h": 8},
+      "targets": [{"expr": "sum(increase(cloudscale_stream_sink_failures_total[15m])) by (sink)"}]
+    },
+    {
+      "id": 108,
+      "type": "stat",
+      "title": "PostgreSQL Health (streaming sink)",
+      "description": "cloudscale_stream_postgres_available — 1 healthy, 0 retries exhausted. Alert: StreamingPostgresUnavailable.",
+      "gridPos": {"x": 16, "y": 51, "w": 8, "h": 8},
+      "targets": [{"expr": "cloudscale_stream_postgres_available"}]
+    },
+
+    {
+      "id": 400,
+      "type": "row",
+      "title": "Cache & Dependency Health",
+      "collapsed": false,
+      "gridPos": {"x": 0, "y": 59, "w": 24, "h": 1}
+    },
+    {
+      "id": 109,
+      "type": "timeseries",
+      "title": "Redis Cache Health / Fallbacks",
+      "description": "platform_cache_available{cache=redis} (1 healthy, 0 in outage-fallback) and platform_cache_events_total{outcome=unavailable} rate. Alert: RedisUnavailable.",
+      "gridPos": {"x": 0, "y": 60, "w": 8, "h": 8},
+      "targets": [
+        {"expr": "platform_cache_available{cache=\"redis\"}", "legendFormat": "available"},
+        {"expr": "sum(rate(platform_cache_events_total{outcome=\"unavailable\"}[10m]))", "legendFormat": "fallback rate"}
+      ]
+    },
+    {
+      "id": 119,
+      "type": "timeseries",
+      "title": "Cache Operations by Outcome",
+      "description": "platform_cache_events_total rate, by outcome (hit/miss/set/unavailable/rate_limit_incr).",
+      "gridPos": {"x": 8, "y": 60, "w": 8, "h": 8},
+      "targets": [{"expr": "sum(rate(platform_cache_events_total[5m])) by (outcome)", "legendFormat": "{{outcome}}"}]
+    },
+    {
+      "id": 120,
+      "type": "timeseries",
+      "title": "Kafka Publish Health",
+      "description": "platform_kafka_events_published_total rate, by status (success/failed). Alert: IngestionPublishFailures.",
+      "gridPos": {"x": 16, "y": 60, "w": 8, "h": 8},
+      "targets": [
+        {"expr": "sum(rate(platform_kafka_events_published_total{status=\"success\"}[5m]))", "legendFormat": "published ok"},
+        {"expr": "sum(rate(platform_kafka_events_published_total{status=\"failed\"}[5m]))", "legendFormat": "published fail"}
+      ]
+    },
+
+    {
+      "id": 500,
+      "type": "row",
+      "title": "Reconciliation & Reliability",
+      "collapsed": false,
+      "gridPos": {"x": 0, "y": 68, "w": 24, "h": 1}
+    },
+    {
+      "id": 110,
+      "type": "stat",
+      "title": "Reconciliation Health (24h)",
+      "description": "cloudscale_reconciliation_recent_failures / cloudscale_reconciliation_recent_checks, derived from reconciliation_audit by ops-console. Alert: ReconciliationFailuresDetected.",
+      "gridPos": {"x": 0, "y": 69, "w": 6, "h": 8},
+      "targets": [
+        {"expr": "cloudscale_reconciliation_recent_failures", "legendFormat": "failures"},
+        {"expr": "cloudscale_reconciliation_recent_checks", "legendFormat": "total checks"}
+      ]
+    },
+    {
+      "id": 111,
+      "type": "table",
+      "title": "Reliability Exercise Results",
+      "description": "cloudscale_reliability_exercise_last_status{scenario_id} (1 passed, 0 failed) and last_run_age_seconds, derived from pipeline_run_log by ops-console. See docs/reliability.md.",
+      "gridPos": {"x": 6, "y": 69, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "cloudscale_reliability_exercise_last_status", "legendFormat": "{{scenario_id}}"},
+        {"expr": "cloudscale_reliability_exercise_last_run_age_seconds", "legendFormat": "{{scenario_id}} age (s)"}
+      ]
+    },
+    {
+      "id": 112,
+      "type": "timeseries",
+      "title": "Checkpoint Freshness",
+      "description": "cloudscale_stream_checkpoint_age_seconds (live process) and cloudscale_stream_checkpoint_freshness_seconds_db (database view, from ops-console). Alerts: StreamingCheckpointStale, StreamingCheckpointStaleFromDatabase.",
+      "gridPos": {"x": 18, "y": 69, "w": 6, "h": 8},
+      "targets": [
+        {"expr": "time() - cloudscale_stream_checkpoint_age_seconds", "legendFormat": "live - {{query}}"},
+        {"expr": "cloudscale_stream_checkpoint_freshness_seconds_db", "legendFormat": "db - {{query}}"}
+      ]
+    },
+    {
+      "id": 113,
+      "type": "timeseries",
+      "title": "Serving Metrics Staleness",
+      "description": "cloudscale_serving_metrics_staleness_seconds, by serving table. Alert: ServingMetricsStale > 3h.",
+      "gridPos": {"x": 0, "y": 77, "w": 12, "h": 8},
+      "targets": [{"expr": "cloudscale_serving_metrics_staleness_seconds", "legendFormat": "{{table}}"}]
+    },
+    {
+      "id": 121,
+      "type": "timeseries",
+      "title": "Pipeline Run Outcomes",
+      "description": "Pipeline runs logged to pipeline_run_log, surfaced as cloudscale_reliability_exercise_last_status for reliability scenarios. See docs/reliability.md.",
+      "gridPos": {"x": 12, "y": 77, "w": 12, "h": 8},
+      "targets": [
+        {"expr": "cloudscale_reliability_exercise_last_status", "legendFormat": "{{scenario_id}}"}
+      ]
+    }
+  ]
+}

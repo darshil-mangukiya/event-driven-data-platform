@@ -1,0 +1,43 @@
+{
+  "registry_version": 1,
+  "compatibility": "BACKWARD",
+  "envelope_schema": "schemas/v1/event-envelope.schema.json",
+  "subjects": [
+    {
+      "subject": "order-events",
+      "event_types": ["order.created", "order.updated"],
+      "payload_schema": "schemas/v1/order-payload.schema.json",
+      "owner": "product-analytics",
+      "version": 1
+    },
+    {
+      "subject": "payment-events",
+      "event_types": ["payment.authorized", "payment.captured", "payment.failed"],
+      "payload_schema": "schemas/v1/payment-payload.schema.json",
+      "owner": "finance-risk",
+      "version": 1
+    },
+    {
+      "subject": "user-events",
+      "event_types": ["user.signed_up", "user.activity", "user.churn_signal"],
+      "payload_schema": "schemas/v1/user-payload.schema.json",
+      "owner": "product-analytics",
+      "version": 1
+    },
+    {
+      "subject": "product-events",
+      "event_types": ["product.upserted", "product.inventory_changed"],
+      "payload_schema": "schemas/v1/product-payload.schema.json",
+      "owner": "operations",
+      "version": 1
+    },
+    {
+      "subject": "system-events",
+      "event_types": ["system.health", "system.alert"],
+      "payload_schema": "schemas/v1/system-payload.schema.json",
+      "owner": "platform",
+      "version": 1
+    }
+  ]
+}
+

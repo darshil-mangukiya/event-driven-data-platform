@@ -1,0 +1,406 @@
+# Data Product Registry
+#
+# Machine-readable, consumer-facing data product contracts. This registry
+# does NOT duplicate metrics/contracts/tenant_daily_metrics.json (the
+# technical metric-formula contract) — it references it. This registry adds
+# the layer that formula-level contract doesn't cover: modeled consumers,
+# business questions, lineage, tenant isolation, cache/failure behavior,
+# and acceptance criteria, all validated by scripts/validate_data_products.py.
+#
+# Every product groups one or more entries from
+# metrics/contracts/tenant_daily_metrics.json under a single consumer-facing
+# product. Fields are populated only where they can be meaningfully derived
+# from the actual, implemented system — see docs/data-products.md for the
+# narrative version of this registry.
+
+registry_version: 1
+
+data_products:
+  - product_id: revenue
+    name: Revenue & Order Metrics
+    version: 1
+    domain: finance
+    description: >-
+      Tenant-scoped gross/net revenue, order count, units sold, and average
+      order value, derived from processed order events.
+    modeled_consumers: [finance]
+    business_questions:
+      - "What is revenue for a tenant and period?"
+      - "How fresh is the result?"
+      - "Does serving revenue reconcile to processed orders?"
+    owner: finance-analytics
+    status: active
+    metric_contracts: [revenue]
+    source_events:
+      - order.created
+      - order.updated
+    source_tables: [processed_orders]
+    processing: >-
+      Async: processing-service consumes platform.events.orders, writes
+      processed_orders, rolls up into tenant_metrics_hourly ->
+      tenant_metrics_daily. Streaming (parallel path): Spark Structured
+      Streaming validates/deduplicates/watermarks the same order events and
+      writes windowed revenue into stream_window_metrics — see
+      docs/streaming_architecture.md. The analytics API serves from the
+      async path's tenant_metrics_daily; stream_window_metrics is not yet
+      wired into this API (see Limitations in docs/data-products.md).
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/revenue
+    grain: [tenant_id, metric_date]
+    dimensions: [tenant_id, metric_date, region, channel]
+    measures: [gross_revenue, net_revenue, order_count, units_sold, average_order_value]
+    freshness_target: "15 minutes (docs/metric-sla.md)"
+    latency_target: "p95 < 300ms cached / < 750ms uncached (docs/slo-catalog.md #5)"
+    slo_reference: ["Serving Freshness (Async Path)", "Reconciliation Correctness"]
+    tenant_isolation:
+      tenant_scoped: true
+      isolation_rule: >-
+        Authenticated tenant may retrieve only its own records — enforced by
+        assert_tenant_scope() against the JWT/header-derived TenantPrincipal
+        (services/analytics-service/app/main.py), the SQL WHERE tenant_id = $1
+        filter in AnalyticsRepository.revenue(), and covered by
+        tests/test_tenant_access_and_cache.py::test_tenant_principal_blocks_cross_tenant_access.
+    data_quality_rules:
+      - raw_event_required_fields
+      - processed_order_event_uniqueness
+      - processed_order_revenue_ranges
+    reconciliation_rules:
+      - "scripts/reconcile_metrics.py::evaluate_reconciliation — revenue_tolerance=0.01, order/units deltas must be 0"
+    lineage:
+      - "order.created/order.updated -> Kafka platform.events.orders -> processing-service -> processed_orders -> tenant_metrics_hourly -> tenant_metrics_daily -> /metrics/revenue -> Finance consumer"
+      - "(parallel) order.created/order.updated -> Kafka -> Spark Structured Streaming (validate/dedup/watermark/window) -> stream_window_metrics [not yet API-served]"
+    dependencies: [payment_health]
+    cache:
+      enabled: true
+      ttl_seconds: 120
+      key_scope: "tenant_id + query params (stable_cache_key)"
+      fallback_behavior: "Redis unavailable -> cache miss -> loader queries PostgreSQL directly; request still succeeds, just uncached (RedisCache.get_json returns None on outage)."
+      invalidation: "TTL expiry only; no explicit invalidation on write (near-real-time aggregate updates make brief staleness acceptable)."
+    failure_behavior:
+      - "Redis unavailable -> falls back to PostgreSQL per cache.fallback_behavior above; platform_cache_available{cache=redis} drops to 0 (RedisUnavailable alert)."
+      - "PostgreSQL unavailable -> request fails with a controlled 5xx (Postgres.execute propagates); no silent empty/zero response."
+      - "Streaming/serving freshness SLO violated -> cloudscale_serving_metrics_staleness_seconds{table=tenant_metrics_daily} rises past 10800s -> ServingMetricsStale alert (not a silent-healthy state)."
+    acceptance_criteria:
+      - "Revenue responses must be tenant scoped."
+      - "Serving revenue must reconcile against the authoritative processed source within the configured tolerance (0.01)."
+      - "A stale data product must surface a health/freshness signal rather than appearing silently healthy."
+      - "Redis unavailability must follow the documented fallback behavior."
+      - "Unknown tenants must not receive another tenant's metrics."
+    deprecation_policy: >-
+      Backward-compatible field additions only; a breaking change requires a
+      new /metrics/revenue/v2 endpoint per docs/metric-ownership.md's
+      Change Control process.
+    known_limitations:
+      - "Local initialization values are for development workflows and are not financial evidence."
+      - "stream_window_metrics (the Structured Streaming aggregation) is not yet served by this API — see docs/data-products.md Limitations."
+
+  - product_id: payment_health
+    name: Payment Health
+    version: 1
+    domain: finance
+    description: >-
+      Tenant-scoped payment success/failure counts and success rate, plus
+      the tenant health score's payment-failure input.
+    modeled_consumers: [finance, risk]
+    business_questions:
+      - "What is the payment success/failure rate for a tenant?"
+      - "Are payment failures indicating abnormal behavior?"
+    owner: finance-risk
+    status: active
+    metric_contracts: [payment_success, tenant_health_score]
+    source_events:
+      - payment.authorized
+      - payment.captured
+      - payment.failed
+    source_tables: [processed_payments]
+    processing: >-
+      processing-service consumes platform.events.payments, writes
+      processed_payments (including a high-risk-failed-payment alert signal
+      — see tests/test_processing_logic.py::test_high_risk_failed_payment_creates_alert_signal),
+      rolls up into tenant_metrics_daily.
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/payment_success
+    grain: [tenant_id, metric_date]
+    dimensions: [tenant_id, metric_date, payment_method]
+    measures: [payment_success_count, payment_failure_count, payment_success_rate]
+    freshness_target: "15 minutes (near-real-time aggregate updates, docs/metric-sla.md revenue analog)"
+    latency_target: "p95 < 750ms uncached (docs/slo-catalog.md #5)"
+    slo_reference: ["Serving Freshness (Async Path)"]
+    tenant_isolation:
+      tenant_scoped: true
+      isolation_rule: >-
+        Authenticated tenant may retrieve only its own records — same
+        assert_tenant_scope() + SQL tenant_id filter mechanism as revenue;
+        see tests/test_tenant_access_and_cache.py.
+    data_quality_rules:
+      - raw_event_required_fields
+    reconciliation_rules:
+      - "scripts/reconcile_metrics.py::evaluate_payment_reconciliation — compares tenant_metrics_daily.payment_success_count/payment_failure_count against processed_payments, count_tolerance=0"
+    lineage:
+      - "payment.authorized/captured/failed -> Kafka platform.events.payments -> processing-service -> processed_payments -> tenant_metrics_daily -> /metrics/payment_success -> Finance/Risk consumer"
+      - "processed_payments (high-risk failure) -> alerts -> Ops Console / demo dashboard"
+    dependencies: []
+    cache:
+      enabled: true
+      ttl_seconds: 120
+      key_scope: "tenant_id + query params (stable_cache_key)"
+      fallback_behavior: "Redis unavailable -> cache miss -> PostgreSQL fallback, same mechanism as revenue."
+      invalidation: "TTL expiry only."
+    failure_behavior:
+      - "Redis unavailable -> PostgreSQL fallback (see cache.fallback_behavior)."
+      - "PostgreSQL unavailable -> request fails with a controlled 5xx."
+    acceptance_criteria:
+      - "Payment health responses must be tenant scoped."
+      - "Redis unavailability must follow the documented fallback behavior."
+      - "Unknown tenants must not receive another tenant's metrics."
+    deprecation_policy: "Same as revenue (docs/metric-ownership.md Change Control)."
+    known_limitations:
+      - "Local data does not model all processor states such as chargebacks or refunds."
+
+  - product_id: customer_activity
+    name: Customer Activity
+    version: 1
+    domain: product
+    description: >-
+      Tenant-scoped new/active user counts, churn-signal counts, and a
+      retention proxy derived from user session events.
+    modeled_consumers: [product]
+    business_questions:
+      - "Which products are performing well?"
+      - "How is customer/product activity changing?"
+    owner: product-analytics
+    status: active
+    metric_contracts: [customers, churn, retention]
+    source_events:
+      - user.signed_up
+      - user.activity
+      - user.churn_signal
+    source_tables: [processed_user_sessions]
+    processing: >-
+      processing-service consumes platform.events.users, writes
+      processed_user_sessions, rolls up into tenant_metrics_daily.
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/customers
+    grain: [tenant_id, metric_date]
+    dimensions: [tenant_id, metric_date, plan, marketing_campaign_id]
+    measures: [new_users, active_users, churn_signal_count, retention_rate]
+    freshness_target: "30 minutes (docs/metric-sla.md)"
+    latency_target: "p95 < 750ms uncached (docs/slo-catalog.md #5)"
+    slo_reference: ["Serving Freshness (Async Path)"]
+    tenant_isolation:
+      tenant_scoped: true
+      isolation_rule: >-
+        Authenticated tenant may retrieve only its own records — same
+        assert_tenant_scope() + SQL tenant_id filter mechanism as revenue.
+    data_quality_rules:
+      - raw_event_required_fields
+    reconciliation_rules:
+      - "scripts/reconcile_metrics.py::evaluate_customer_activity_reconciliation — compares tenant_metrics_daily.new_users/active_users/churn_signal_count against processed_user_sessions, count_tolerance=0"
+    lineage:
+      - "user.signed_up/activity/churn_signal -> Kafka platform.events.users -> processing-service -> processed_user_sessions -> tenant_metrics_daily -> /metrics/customers, /metrics/churn, /metrics/retention -> Product consumer"
+    dependencies: []
+    cache:
+      enabled: true
+      ttl_seconds: 120
+      key_scope: "tenant_id + query params (stable_cache_key)"
+      fallback_behavior: "Redis unavailable -> cache miss -> PostgreSQL fallback."
+      invalidation: "TTL expiry only."
+    failure_behavior:
+      - "Redis unavailable -> PostgreSQL fallback."
+      - "PostgreSQL unavailable -> request fails with a controlled 5xx."
+    acceptance_criteria:
+      - "Customer activity responses must be tenant scoped."
+      - "Redis unavailability must follow the documented fallback behavior."
+      - "Churn and retention must remain labeled as signals/proxies, not confirmed churn or contractual retention."
+    deprecation_policy: "Same Change Control process as revenue."
+    known_limitations:
+      - "Churn is a signal metric (count of churn_signal/cancel_intent events), not confirmed contractual churn — see docs/metric-definitions.md Proxy Metrics."
+      - "Retention is a proxy (1 - churn_signal_count / active_users), not a cohort-based retention calculation — true retention requires a longer-lived identity/subscription model."
+      - "Anonymous events require identity stitching before production use."
+
+  - product_id: product_performance
+    name: Product Performance
+    version: 1
+    domain: product
+    description: >-
+      Product-level revenue and units sold by tenant, joined against
+      product metadata.
+    modeled_consumers: [product]
+    business_questions:
+      - "Which products generate the most activity or revenue?"
+    owner: product-analytics
+    status: active
+    metric_contracts: [product_performance]
+    source_events:
+      - order.created
+      - product.upserted
+      - product.inventory_changed
+    source_tables: [processed_orders]
+    processing: >-
+      Query-time serving over processed_orders joined with tenant_products
+      metadata — not a pre-aggregated rollup table, computed on read.
+    serving_table: processed_orders
+    api_endpoint: /metrics/product_performance
+    grain: [tenant_id, product_id]
+    dimensions: [tenant_id, product_id, category]
+    measures: [net_revenue, units_sold]
+    freshness_target: "60 minutes (docs/metric-sla.md)"
+    latency_target: "p95 < 750ms uncached (docs/slo-catalog.md #5)"
+    slo_reference: ["Serving Freshness (Async Path)"]
+    tenant_isolation:
+      tenant_scoped: true
+      isolation_rule: >-
+        Authenticated tenant may retrieve only its own records — same
+        assert_tenant_scope() + SQL tenant_id filter mechanism as revenue.
+    data_quality_rules:
+      - processed_order_revenue_ranges
+    reconciliation_rules: []
+    lineage:
+      - "order.created -> Kafka platform.events.orders -> processing-service -> processed_orders (joined with tenant_products) -> /metrics/product_performance -> Product consumer"
+    dependencies: [revenue]
+    cache:
+      enabled: true
+      ttl_seconds: 120
+      key_scope: "tenant_id + query params (stable_cache_key)"
+      fallback_behavior: "Redis unavailable -> cache miss -> PostgreSQL fallback."
+      invalidation: "TTL expiry only."
+    failure_behavior:
+      - "Redis unavailable -> PostgreSQL fallback."
+      - "PostgreSQL unavailable -> request fails with a controlled 5xx."
+    acceptance_criteria:
+      - "Product performance responses must be tenant scoped."
+      - "Redis unavailability must follow the documented fallback behavior."
+    deprecation_policy: "Same Change Control process as revenue."
+    known_limitations:
+      - "Inventory state is event-derived and should be reconciled with source-of-truth catalog systems."
+
+  - product_id: marketing_performance
+    name: Marketing ROI Proxy
+    version: 1
+    domain: marketing
+    description: >-
+      Tenant campaign return based on attributed revenue and local development
+      campaign spend — a proxy, not a production attribution model.
+    modeled_consumers: [marketing]
+    business_questions:
+      - "What marketing-performance proxy is available from the modeled event data?"
+    owner: marketing-analytics
+    status: active
+    metric_contracts: [marketing_roi]
+    source_events:
+      - order.created
+    source_tables: [processed_orders]
+    processing: >-
+      processed_orders with marketing_campaign_id rolled up into
+      tenant_metrics_daily; local MVP spend attribution is simplified, not
+      an ad-platform spend feed integration.
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/marketing_roi
+    grain: [tenant_id, metric_date]
+    dimensions: [tenant_id, metric_date, marketing_campaign_id]
+    measures: [marketing_spend, marketing_attributed_revenue, marketing_roi]
+    freshness_target: "60 minutes (docs/metric-sla.md)"
+    latency_target: "p99.0% monthly availability (docs/metric-sla.md)"
+    slo_reference: ["Serving Freshness (Async Path)"]
+    tenant_isolation:
+      tenant_scoped: true
+      isolation_rule: >-
+        Authenticated tenant may retrieve only its own records — same
+        assert_tenant_scope() + SQL tenant_id filter mechanism as revenue.
+    data_quality_rules:
+      - processed_order_revenue_ranges
+    reconciliation_rules:
+      - "Campaign attribution completeness checks (docs/metric-ownership.md); no dedicated reconciliation script (see known_limitations)."
+    lineage:
+      - "order.created (with marketing_campaign_id) -> Kafka platform.events.orders -> processing-service -> processed_orders -> tenant_metrics_daily -> /metrics/marketing_roi -> Marketing consumer"
+    dependencies: [revenue]
+    cache:
+      enabled: true
+      ttl_seconds: 120
+      key_scope: "tenant_id + query params (stable_cache_key)"
+      fallback_behavior: "Redis unavailable -> cache miss -> PostgreSQL fallback."
+      invalidation: "TTL expiry only."
+    failure_behavior:
+      - "Redis unavailable -> PostgreSQL fallback."
+      - "PostgreSQL unavailable -> request fails with a controlled 5xx."
+    acceptance_criteria:
+      - "Marketing ROI responses must be tenant scoped."
+      - "This product must remain labeled a proxy, not a production attribution model."
+    deprecation_policy: "Same Change Control process as revenue."
+    known_limitations:
+      - "Local MVP uses simplified spend attribution; production would join real ad-platform spend feeds."
+      - "This is explicitly a proxy metric — see docs/metric-definitions.md Proxy Metrics for what it does and does not represent."
+
+  - product_id: platform_health
+    name: Platform Health
+    version: 1
+    domain: operations
+    description: >-
+      Composite operational health signal (tenant_health_score), event
+      throughput, and active alerts — the operations/risk view of whether
+      the platform itself is behaving normally.
+    modeled_consumers: [operations, risk]
+    business_questions:
+      - "Is event processing healthy?"
+      - "Are data products fresh?"
+      - "Is processing lag increasing?"
+      - "Are failures accumulating in the DLQ?"
+      - "Which alerts require review?"
+    owner: data-platform
+    status: active
+    metric_contracts: [event_throughput, tenant_health_score]
+    source_events:
+      - order.created
+      - payment.authorized
+      - payment.captured
+      - payment.failed
+      - user.activity
+      - system.health
+      - system.alert
+    source_tables: [tenant_metrics_daily, service_health_metrics, alerts, pipeline_watermarks]
+    processing: >-
+      Composite, query-time: weighted penalties over payment failures,
+      churn signals, low event volume, and stale platform health
+      (services/analytics-service/app/repository.py). Independently, the
+      Structured Streaming pipeline and reliability exercises feed
+      Prometheus/ops-console gauges surfaced in the observability
+      layer (cloudscale_stream_*, cloudscale_reliability_*).
+    serving_table: tenant_metrics_daily
+    api_endpoint: /metrics/tenant_health_score
+    grain: [tenant_id]
+    dimensions: [tenant_id]
+    measures: [tenant_health_score, events_processed]
+    freshness_target: "5 minutes (docs/metric-sla.md /system/status analog)"
+    latency_target: "p99.9% monthly availability (docs/metric-sla.md)"
+    slo_reference: ["Streaming Availability", "Processing Lag", "DLQ Rate", "Checkpoint Freshness"]
+    tenant_isolation:
+      tenant_scoped: true
+      isolation_rule: >-
+        Authenticated tenant may retrieve only its own record — same
+        assert_tenant_scope() mechanism as revenue; /alerts and
+        /system/status apply the same principal-based scoping.
+    data_quality_rules:
+      - raw_event_freshness
+    reconciliation_rules: []
+    lineage:
+      - "system.health/system.alert -> Kafka platform.events.system -> service_health_metrics / alerts -> /metrics/tenant_health_score, /alerts -> Operations/Risk consumer"
+      - "(streaming path) Kafka domain topics -> Spark Structured Streaming -> cloudscale_stream_* Prometheus metrics -> Grafana / alert rules (see docs/OBSERVABILITY.md)"
+    dependencies: [payment_health]
+    cache:
+      enabled: false
+      ttl_seconds: 0
+      key_scope: "n/a — /metrics/tenant_health_score is a query-time composite, not cached (services/analytics-service/app/main.py)."
+      fallback_behavior: "n/a — no cache in the request path for this endpoint."
+      invalidation: "n/a"
+    failure_behavior:
+      - "PostgreSQL unavailable -> request fails with a controlled 5xx."
+      - "Streaming checkpoint stale -> cloudscale_stream_checkpoint_age_seconds alert (StreamingCheckpointStale) fires rather than the pipeline silently going quiet."
+      - "Reliability exercise failure -> cloudscale_reliability_exercise_last_status drops to 0, surfaced on the Grafana Reliability Exercise Results panel."
+    acceptance_criteria:
+      - "Platform health responses must be tenant scoped."
+      - "A stale data product must surface a health/freshness signal rather than appearing silently healthy."
+      - "Score weights are documented as MVP defaults, not calibrated production thresholds."
+    deprecation_policy: "Same Change Control process as revenue."
+    known_limitations:
+      - "Score weights are MVP defaults and should be calibrated against real incidents."
+      - "Kafka lag and exact offset accounting require live broker telemetry not available in this local environment."

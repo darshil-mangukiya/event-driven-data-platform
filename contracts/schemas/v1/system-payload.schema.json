@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform.local/schemas/v1/system-payload.schema.json",
+  "title": "System Payload",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["service_name", "status"],
+  "properties": {
+    "service_name": {"type": "string"},
+    "status": {"type": "string"},
+    "latency_ms": {"type": ["number", "null"], "minimum": 0},
+    "error_count": {"type": "integer", "minimum": 0},
+    "throughput_per_minute": {"type": ["number", "null"], "minimum": 0},
+    "kafka_lag": {"type": ["integer", "null"], "minimum": 0},
+    "cache_hit_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "message": {"type": ["string", "null"]}
+  }
+}
+

@@ -1,0 +1,21 @@
+{
+  "batch_size": 50,
+  "batches": 20,
+  "benchmark_name": "smoke_1k",
+  "created_at": "2026-09-03T02:41:49.000046+00:00",
+  "elapsed_seconds": 1.4922,
+  "events": 1000,
+  "events_per_second": 670.13,
+  "failure_batches": 0,
+  "failure_rate": 0.0,
+  "host_cpu_count": 14,
+  "host_platform": "macOS-26.6.2-arm64-arm-64bit",
+  "local_scope_note": "Local benchmark runner; production-scale figures require distributed load generation.",
+  "max_latency_ms": 1442.3259,
+  "p50_latency_ms": 1417.2949,
+  "p95_latency_ms": 1441.5733,
+  "p99_latency_ms": 1442.3259,
+  "seed": 62020,
+  "target_url": "http://localhost:8001",
+  "tenant_id": "tenant_demo"
+}

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform.local/schemas/v1/user-payload.schema.json",
+  "title": "User Payload",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["user_id", "action"],
+  "properties": {
+    "user_id": {"type": "string"},
+    "action": {"type": "string"},
+    "session_id": {"type": ["string", "null"]},
+    "page": {"type": ["string", "null"]},
+    "referrer": {"type": ["string", "null"]},
+    "duration_seconds": {"type": "integer", "minimum": 0},
+    "plan": {"type": ["string", "null"]},
+    "marketing_campaign_id": {"type": ["string", "null"]}
+  }
+}
+

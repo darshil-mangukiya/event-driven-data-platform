@@ -1,0 +1,37 @@
+{
+  "sample_artifact": true,
+  "tenant_id": "tenant_demo",
+  "score_date": "2026-05-25",
+  "quality_score": 92.5,
+  "passed_checks": 5,
+  "warning_checks": 1,
+  "failed_checks": 0,
+  "critical_checks": 0,
+  "checks": [
+    {
+      "check_name": "event_freshness_minutes",
+      "check_category": "freshness",
+      "status": "passed",
+      "severity": "critical",
+      "observed_value": 4,
+      "threshold_value": 15
+    },
+    {
+      "check_name": "payment_failure_rate",
+      "check_category": "validity",
+      "status": "warning",
+      "severity": "medium",
+      "observed_value": 0.061,
+      "threshold_value": 0.05
+    },
+    {
+      "check_name": "daily_revenue_non_negative",
+      "check_category": "validity",
+      "status": "passed",
+      "severity": "critical",
+      "observed_value": 1,
+      "threshold_value": 1
+    }
+  ],
+  "local_scope_note": "Sample response shape for docs and local review. Run scripts/run_data_quality_checks.py for live results."
+}

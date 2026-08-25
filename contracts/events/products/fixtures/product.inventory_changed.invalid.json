@@ -1,0 +1,9 @@
+{
+  "product_id": "prod_contract_bad",
+  "sku": "",
+  "name": "Bad Product",
+  "category": "growth",
+  "price": -1,
+  "inventory_delta": 15,
+  "active": true
+}

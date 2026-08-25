@@ -1,0 +1,6 @@
+event_id,event_time_relation,arrival_lateness_seconds,duplicate,expected_action,actual_action,window_effect,status
+stream-ontime,on-time,0,false,processed,processed,window row updated,PASS
+stream-out-of-order,out-of-order within watermark,30,false,processed,processed,window row updated,PASS
+stream-late-accepted,late within watermark,136,false,late_accepted,late_accepted,window row updated,PASS
+stream-duplicate,duplicate within watermark,0,true,duplicate,duplicate,no second output effect,PASS
+stream-late-rejected,beyond watermark,736,false,late_rejected,late_rejected,DLQ row written,PASS

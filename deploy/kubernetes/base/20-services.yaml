@@ -1,0 +1,184 @@
+# The 4 stateless FastAPI services this cluster deploys. Images are
+# locally built (docker/Dockerfile.service, SERVICE_PATH=services/<name>)
+# and loaded via `kind load docker-image` (or `make k8s-deploy`) rather
+# than pulled from a registry — see docs/kubernetes.md.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ingestion-service
+  namespace: cloudscale
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: ingestion-service}}
+  template:
+    metadata: {labels: {app: ingestion-service}}
+    spec:
+      containers:
+        - name: ingestion-service
+          image: cloudscale-ingestion-service:local
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 8000}]
+          envFrom:
+            - configMapRef: {name: cloudscale-config}
+          startupProbe:
+            httpGet: {path: /health, port: 8000}
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+          resources:
+            requests: {cpu: "100m", memory: "192Mi"}
+            limits: {cpu: "500m", memory: "384Mi"}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: ingestion-service, namespace: cloudscale}
+spec:
+  selector: {app: ingestion-service}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: processing-service
+  namespace: cloudscale
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: processing-service}}
+  template:
+    metadata: {labels: {app: processing-service}}
+    spec:
+      containers:
+        - name: processing-service
+          image: cloudscale-processing-service:local
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 8000}]
+          envFrom:
+            - configMapRef: {name: cloudscale-config}
+          env:
+            # Overrides the ConfigMap's DATABASE_URL (the `platform`
+            # superuser) with the non-superuser, NOBYPASSRLS
+            # platform_tenant_scoped role — explicit env entries win over
+            # envFrom for the same name. Matches docker-compose.yml's
+            # equivalent override; see
+            # evidence/validation/application-rls-runtime-verification.md.
+            - name: DATABASE_URL
+              value: "postgresql://platform_tenant_scoped:local-tenant-scoped-change-me@postgres:5432/data_platform"
+          startupProbe:
+            httpGet: {path: /health, port: 8000}
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+          resources:
+            requests: {cpu: "150m", memory: "256Mi"}
+            limits: {cpu: "750m", memory: "512Mi"}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: processing-service, namespace: cloudscale}
+spec:
+  selector: {app: processing-service}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: analytics-service
+  namespace: cloudscale
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: analytics-service}}
+  template:
+    metadata: {labels: {app: analytics-service}}
+    spec:
+      containers:
+        - name: analytics-service
+          image: cloudscale-analytics-service:local
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 8000}]
+          envFrom:
+            - configMapRef: {name: cloudscale-config}
+          env:
+            # Overrides the ConfigMap's DATABASE_URL (the `platform`
+            # superuser) with the non-superuser, NOBYPASSRLS
+            # platform_tenant_scoped role — explicit env entries win over
+            # envFrom for the same name. This is the tenant-facing
+            # analytics API; see
+            # evidence/validation/application-rls-runtime-verification.md.
+            - name: DATABASE_URL
+              value: "postgresql://platform_tenant_scoped:local-tenant-scoped-change-me@postgres:5432/data_platform"
+          startupProbe:
+            httpGet: {path: /health, port: 8000}
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+          resources:
+            requests: {cpu: "100m", memory: "192Mi"}
+            limits: {cpu: "500m", memory: "384Mi"}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: analytics-service, namespace: cloudscale}
+spec:
+  selector: {app: analytics-service}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metadata-service
+  namespace: cloudscale
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: metadata-service}}
+  template:
+    metadata: {labels: {app: metadata-service}}
+    spec:
+      containers:
+        - name: metadata-service
+          image: cloudscale-metadata-service:local
+          imagePullPolicy: IfNotPresent
+          ports: [{containerPort: 8000}]
+          envFrom:
+            - configMapRef: {name: cloudscale-config}
+          env:
+            # Overrides the ConfigMap's DATABASE_URL (the `platform`
+            # superuser) with the non-superuser platform_admin_bypass
+            # role — tenant provisioning is inherently cross-tenant, see
+            # evidence/validation/application-rls-runtime-verification.md.
+            - name: DATABASE_URL
+              value: "postgresql://platform_admin_bypass:local-admin-bypass-change-me@postgres:5432/data_platform"
+          startupProbe:
+            httpGet: {path: /health, port: 8000}
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+          resources:
+            requests: {cpu: "100m", memory: "192Mi"}
+            limits: {cpu: "500m", memory: "384Mi"}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: metadata-service, namespace: cloudscale}
+spec:
+  selector: {app: metadata-service}
+  ports: [{port: 8000, targetPort: 8000}]

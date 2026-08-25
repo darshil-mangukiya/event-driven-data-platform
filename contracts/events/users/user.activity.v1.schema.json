@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform.local/contracts/events/users/user.activity.v1.schema.json",
+  "title": "user.activity v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["user_id", "action"],
+  "properties": {
+    "user_id": {"type": "string", "minLength": 1},
+    "action": {"type": "string", "minLength": 1},
+    "session_id": {"type": ["string", "null"]},
+    "page": {"type": ["string", "null"]},
+    "referrer": {"type": ["string", "null"]},
+    "duration_seconds": {"type": "integer", "minimum": 0},
+    "plan": {"type": ["string", "null"]},
+    "marketing_campaign_id": {"type": ["string", "null"]}
+  }
+}

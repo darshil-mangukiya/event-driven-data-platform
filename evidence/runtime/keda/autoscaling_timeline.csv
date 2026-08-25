@@ -1,0 +1,8 @@
+timestamp_local,topic,consumer_group,lag,ready_replicas,desired_replicas,load_submission_events_per_second,event
+2026-09-02T20:06:31-07:00,platform.events.orders,processing-service,17000,1,4,1125.2795,backlog detected after API load submission
+2026-09-02T20:06:43-07:00,platform.events.orders,processing-service,14250,4,4,,scale up
+2026-09-02T20:06:54-07:00,platform.events.orders,processing-service,10083,5,5,,max replicas ready
+2026-09-02T20:07:05-07:00,platform.events.orders,processing-service,7012,5,5,,draining
+2026-09-02T20:07:16-07:00,platform.events.orders,processing-service,3908,5,5,,draining
+2026-09-02T20:07:35-07:00,platform.events.orders,processing-service,0,5,5,,backlog drained
+2026-09-02T20:08:55-07:00,platform.events.orders,processing-service,0,1,1,,scale down complete

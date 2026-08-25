@@ -1,0 +1,21 @@
+{
+  "sample_artifact": true,
+  "benchmark_name": "sample_local_ingestion_batch_load",
+  "tenant_id": "tenant_demo",
+  "target_url": "http://localhost:8001",
+  "events": 5000,
+  "batches": 50,
+  "batch_size": 100,
+  "elapsed_seconds": 8.4172,
+  "events_per_second": 594.0244,
+  "failure_batches": 0,
+  "failure_rate": 0.0,
+  "p50_latency_ms": 71.42,
+  "p95_latency_ms": 134.88,
+  "p99_latency_ms": 181.25,
+  "max_latency_ms": 224.12,
+  "created_at": "2026-05-25T16:30:00Z",
+  "local_scope_note": "Representative sample artifact only. Run scripts/load_test_events.py against Docker Compose to produce measured local results.",
+  "host_cpu_count": null,
+  "host_platform": "sample-artifact-not-a-real-machine"
+}

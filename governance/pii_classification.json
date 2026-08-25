@@ -1,0 +1,41 @@
+{
+  "catalog_version": 1,
+  "policy_owner": "data-platform-governance",
+  "fields": [
+    {
+      "dataset": "tenant_users",
+      "field": "email",
+      "classification": "restricted_pii",
+      "handling": "mask_or_hash",
+      "retention_policy": "tenant_contract_term_plus_30_days"
+    },
+    {
+      "dataset": "processed_user_sessions",
+      "field": "user_id",
+      "classification": "restricted_pii",
+      "handling": "mask_or_hash",
+      "retention_policy": "analytics_subject_to_erasure"
+    },
+    {
+      "dataset": "processed_orders",
+      "field": "customer_id",
+      "classification": "restricted_pii",
+      "handling": "mask_or_hash",
+      "retention_policy": "finance_policy_7_years_or_tokenize"
+    },
+    {
+      "dataset": "api_usage_log",
+      "field": "user_id",
+      "classification": "confidential",
+      "handling": "access_controlled",
+      "retention_policy": "90_days"
+    },
+    {
+      "dataset": "tenant_metrics_daily",
+      "field": "net_revenue",
+      "classification": "confidential",
+      "handling": "tenant_scoped",
+      "retention_policy": "business_defined"
+    }
+  ]
+}

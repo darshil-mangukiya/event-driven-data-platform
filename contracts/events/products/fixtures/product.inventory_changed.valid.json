@@ -1,0 +1,9 @@
+{
+  "product_id": "prod_contract_001",
+  "sku": "PROD_CONTRACT_001",
+  "name": "Contract Product",
+  "category": "growth",
+  "price": 125.0,
+  "inventory_delta": 15,
+  "active": true
+}

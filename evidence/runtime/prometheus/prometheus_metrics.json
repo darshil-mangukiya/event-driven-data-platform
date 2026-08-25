@@ -1,0 +1,16 @@
+{
+  "status": "EXECUTED AND VERIFIED",
+  "scrape_targets_up": 7,
+  "rules_loaded": 19,
+  "declared_distinct_metric_families": 28,
+  "live_cloudscale_metric_names": 30,
+  "live_cloudscale_series": 85,
+  "high_cardinality_or_sensitive_label_keys_found": [],
+  "representative_metrics": [
+    {"name": "platform_api_requests_total", "type": "counter", "labels": ["method", "path", "service", "status_code"], "semantics": "HTTP requests", "query": "sum(platform_api_requests_total)", "target": "FastAPI services"},
+    {"name": "cloudscale_stream_events_received_total", "type": "counter", "labels": ["event_type"], "semantics": "stream events received", "sample_value": 7, "query": "sum(cloudscale_stream_events_received_total)", "target": "spark-streaming"},
+    {"name": "cloudscale_stream_events_processed_total", "type": "counter", "labels": ["outcome"], "semantics": "stream event outcomes", "sample_value": 5, "query": "sum(cloudscale_stream_events_processed_total{outcome=\"processed\"})", "target": "spark-streaming"},
+    {"name": "cloudscale_stream_postgres_available", "type": "gauge", "labels": [], "semantics": "stream sink database availability", "sample_value": 1, "query": "cloudscale_stream_postgres_available", "target": "spark-streaming"},
+    {"name": "platform_cache_available", "type": "gauge", "labels": ["cache", "service"], "semantics": "cache dependency availability", "query": "min(platform_cache_available{cache=\"redis\"})", "target": "FastAPI services"}
+  ]
+}

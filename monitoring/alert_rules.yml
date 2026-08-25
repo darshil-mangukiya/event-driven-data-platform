@@ -1,0 +1,198 @@
+groups:
+  - name: data-platform-local
+    rules:
+      - alert: ProcessingServiceDown
+        expr: up{job="processing-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Processing service is not scrapeable.
+
+      - alert: AnalyticsServiceDown
+        expr: up{job="analytics-service"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: Analytics service is not scrapeable.
+
+  # Structured Streaming (spark/streaming/). Thresholds are local/demo
+  # defaults, not tuned against real traffic — see docs/reliability.md's
+  # "delayed-consumer / processing-lag" exercise for how
+  # STREAMING_LAG_ALERT_THRESHOLD_SECONDS was chosen (a small multiple of
+  # the default trigger interval + watermark delay, so a single slow batch
+  # doesn't page but sustained lag does).
+  - name: cloudscale-streaming
+    rules:
+      - alert: StreamingProcessingLagHigh
+        expr: cloudscale_stream_processing_lag_seconds > 120
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: Structured Streaming processing lag exceeds 120s for 5 minutes.
+          threshold_rationale: >-
+            120s is 4x the default 30s trigger interval — a single slow
+            batch should not page, but the pipeline falling consistently
+            behind should.
+
+      - alert: StreamingDlqGrowthHigh
+        expr: increase(cloudscale_stream_dlq_total[10m]) > 50
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 50 events routed to the streaming DLQ in 10 minutes.
+          threshold_rationale: >-
+            Local/demo default — a handful of poison/late-rejected events is
+            expected background noise; a sustained burst suggests an
+            upstream contract break, not isolated bad records.
+
+      - alert: StreamingSinkFailuresHigh
+        expr: increase(cloudscale_stream_sink_failures_total[5m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: A streaming sink write exhausted its retries (see db-outage / redis-outage reliability exercises).
+          threshold_rationale: >-
+            Any sink failure after STREAMING_SINK_MAX_RETRIES attempts is
+            worth paging on immediately — retries already absorbed the
+            transient case.
+
+      - alert: StreamingCheckpointStale
+        expr: time() - cloudscale_stream_checkpoint_age_seconds > 300
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: No streaming checkpoint has advanced in over 5 minutes — the query may be stalled.
+          threshold_rationale: >-
+            5 minutes is well beyond the default 30s trigger interval;
+            a query that stops committing checkpoints is stuck, not slow.
+
+      - alert: StreamingPostgresUnavailable
+        expr: cloudscale_stream_postgres_available == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: The Structured Streaming job's PostgreSQL sink has exhausted retries against an unreachable database.
+          threshold_rationale: >-
+            2 minutes gives STREAMING_SINK_MAX_RETRIES + backoff (well
+            under a minute by default) room to self-recover from a blip
+            before paging — see the db-outage reliability exercise for the
+            measured retry/backoff timing this is based on.
+
+      - alert: StreamingExcessiveLateRejectedRate
+        expr: sum(rate(cloudscale_stream_events_late_total{classification="late_rejected"}[15m])) > 0.5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 0.5 late-rejected events/sec sustained for 10 minutes.
+          threshold_rationale: >-
+            Local/demo default — occasional late-rejected events are
+            expected (see docs/streaming_architecture.md's late-event
+            design); a sustained rate this high suggests systemic clock
+            skew or an upstream delivery delay wider than
+            STREAMING_WATERMARK_DELAY, not isolated stragglers.
+
+      - alert: StreamingExcessiveValidationFailureRate
+        expr: sum(rate(cloudscale_stream_events_failed_total[10m])) > 1
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: More than 1 contract-validation failure/sec sustained for 10 minutes.
+          threshold_rationale: >-
+            Local/demo default — mirrors StreamingDlqGrowthHigh's reasoning
+            but as a rate rather than a raw count, so it stays meaningful
+            regardless of overall traffic volume.
+
+  # Cross-service dependency health: Redis and (indirectly) PostgreSQL as
+  # seen by services other than the streaming job. Thresholds are
+  # local/demo defaults — see docs/reliability.md's redis-outage/db-outage
+  # exercises for the code paths these alerts are meant to catch.
+  - name: cloudscale-dependencies
+    rules:
+      - alert: RedisUnavailable
+        expr: platform_cache_available{cache="redis"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: Redis cache is unavailable — services are falling back to PostgreSQL / failing open on rate limiting.
+          threshold_rationale: >-
+            Warning, not critical: the redis-outage reliability exercise
+            proved the platform keeps serving requests during a Redis
+            outage (cache-miss fallback + fail-open rate limiting), so this
+            is a degraded-mode signal, not an availability incident by
+            itself. 2 minutes filters a single transient blip.
+
+      - alert: OpsConsoleDown
+        expr: up{job="ops-console"} == 0
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: ops-console is not scrapeable — reliability/reconciliation/checkpoint-freshness derived gauges will stop updating.
+          threshold_rationale: >-
+            Warning, not critical: ops-console is an operator-facing
+            aggregation surface, not on the ingest/serving critical path.
+
+      - alert: ProcessingServiceConsumerLagHigh
+        expr: platform_kafka_consumer_lag{service="processing-service"} > 500
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: processing-service's Kafka consumer group is falling behind on {{ $labels.topic }} partition {{ $labels.partition }}.
+          threshold_rationale: >-
+            Local/demo default — the same
+            signal KEDA's ScaledObject scales on
+            (evidence/validation/keda-autoscaling-live-verification.md); 500 messages
+            sustained for 5m is a real backlog, not normal poll-interval
+            jitter, at this platform's local batch size (max_records=250
+            per poll). Not a production-calibrated threshold.
+
+  # Reconciliation and reliability-exercise health, derived from the
+  # database by services/ops-console/app/observability.py.
+  - name: cloudscale-reliability
+    rules:
+      - alert: ReconciliationFailuresDetected
+        expr: cloudscale_reconciliation_recent_failures > 0
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: One or more reconciliation checks failed in the last 24h and the mismatch is still present.
+          threshold_rationale: >-
+            Any reconciliation failure is worth investigating — the "for
+            15m" only guards against alerting mid-reconciliation-run before
+            a fix has had a chance to land and a re-check to clear it.
+
+      - alert: StreamingCheckpointStaleFromDatabase
+        expr: cloudscale_stream_checkpoint_freshness_seconds_db > 600
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: No streaming_checkpoint_audit row committed in over 10 minutes, per the database (independent of whether the streaming job's own /metrics is reachable).
+          threshold_rationale: >-
+            10 minutes (vs. StreamingCheckpointStale's 5) is deliberately
+            more lenient: this is the database's view, refreshed only on
+            each ops-console scrape, so it lags the live process's own
+            gauge by design and shouldn't double-page for the same event.
+
+      - alert: ServingMetricsStale
+        expr: cloudscale_serving_metrics_staleness_seconds > 10800
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: A tenant-facing serving table hasn't been updated in over 3 hours.
+          threshold_rationale: >-
+            Matches the "Data freshness" SLO already in docs/slo-sla.md
+            (raw events within 3 hours per active tenant) — this alert is
+            the serving-table-side complement of that same freshness
+            target, not a separately invented number.

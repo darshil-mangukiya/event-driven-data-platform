@@ -1,0 +1,12 @@
+apiVersion: v2
+name: cloudscale
+description: >
+  Event-Driven Data Platform — packaged Kubernetes deployment (4 FastAPI
+  services + PostgreSQL + Redis + Kafka/Zookeeper). Templates are a
+  parameterized version of the manifests validated directly against a
+  real local kind cluster in deploy/kubernetes/base/ — see
+  evidence/validation/kubernetes-verification.md and
+  evidence/validation/helm-verification.md.
+type: application
+version: 0.1.0
+appVersion: "1.0.0"

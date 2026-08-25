@@ -1,0 +1,22 @@
+{
+  "compose_file": "docker-compose.yml",
+  "live_check": "docker compose -f docker-compose.yml ps",
+  "mode": "compose_inventory",
+  "services": [
+    "zookeeper",
+    "kafka",
+    "ingestion-service",
+    "postgres",
+    "spark-master",
+    "demo-dashboard",
+    "metadata-service",
+    "ops-console",
+    "spark-worker",
+    "redis",
+    "analytics-service",
+    "processing-service",
+    "prometheus",
+    "minio",
+    "minio-init"
+  ]
+}

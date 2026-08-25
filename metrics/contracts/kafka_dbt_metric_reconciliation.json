@@ -1,0 +1,60 @@
+{
+  "contract_version": 1,
+  "owner": "data-platform",
+  "purpose": "Machine-readable mapping between the Kafka-consumer serving path (processing-service -> tenant_metrics_daily, the source analytics-service and the dbt mart both read) and the dbt analytics-engineering path (dbt/models/marts/fct_tenant_daily_metrics.sql), documenting exactly which metrics are independently re-derived by two separate code paths versus which are a single source of truth simply re-exposed through dbt.",
+  "default_grain": ["tenant_id", "metric_date"],
+  "note_on_architecture": "Only payment success and failure counts have independent derivations across the processing and dbt paths. dbt reads net_revenue, gross_revenue, order_count, units_sold, new_users, active_users, and churn_signal_count directly from tenant_metrics_daily, so those fields are passthrough and marked NOT_APPLICABLE for this comparison. dbt derives observed_successful_payments and observed_failed_payments by counting processed_payments, while the processing service incrementally updates payment_success_count and payment_failure_count. This contract compares those independently derived pairs.",
+  "reconciled_metrics": [
+    {
+      "metric_name": "payment_success_count",
+      "serving_source": "tenant_metrics_daily.payment_success_count (incrementally upserted per-event by services/processing-service/app/repository.py's tenant_metrics_hourly/tenant_metrics_daily upsert)",
+      "dbt_source": "analytics_mart.fct_tenant_daily_metrics.observed_successful_payments (freshly COUNTed from processed_payments via dbt/models/staging/stg_payments.sql, status in authorized/captured)",
+      "grain": ["tenant_id", "metric_date"],
+      "tenant_key": "tenant_id",
+      "date_grain": "metric_date (day)",
+      "formula_serving": "incremental counter, +1 per processed payment event with status in (authorized, captured)",
+      "formula_dbt": "count(*) filter (where status in ('captured', 'authorized')) from stg_payments grouped by tenant_id, metric_date",
+      "allowed_tolerance": {"type": "absolute", "value": 0},
+      "criticality": "critical",
+      "source_of_truth_designation": "Neither is authoritative by default -- an exact match is expected because both derive from the same processed_payments events; any divergence indicates a runtime defect (a missed/duplicated Kafka event, an off-by-one in the incremental upsert, or a stg_payments filter mismatch) and must be investigated, not silently trusted from one side."
+    },
+    {
+      "metric_name": "payment_failure_count",
+      "serving_source": "tenant_metrics_daily.payment_failure_count (incrementally upserted, same mechanism as above)",
+      "dbt_source": "analytics_mart.fct_tenant_daily_metrics.observed_failed_payments (freshly COUNTed from processed_payments via stg_payments, status = failed)",
+      "grain": ["tenant_id", "metric_date"],
+      "tenant_key": "tenant_id",
+      "date_grain": "metric_date (day)",
+      "formula_serving": "incremental counter, +1 per processed payment event with status = failed",
+      "formula_dbt": "count(*) filter (where status = 'failed') from stg_payments grouped by tenant_id, metric_date",
+      "allowed_tolerance": {"type": "absolute", "value": 0},
+      "criticality": "critical",
+      "source_of_truth_designation": "Same as payment_success_count -- exact match expected, divergence is a real defect signal."
+    }
+  ],
+  "passthrough_not_reconciled": [
+    {
+      "metric_name": "net_revenue",
+      "reason": "dbt's fct_tenant_daily_metrics reads this field directly from tenant_metrics_daily (select * from {{ source('platform', 'tenant_metrics_daily') }}) with no independent recomputation from processed_orders. There is only one code path today.",
+      "status": "NOT_APPLICABLE"
+    },
+    {"metric_name": "gross_revenue", "reason": "same as net_revenue", "status": "NOT_APPLICABLE"},
+    {"metric_name": "order_count", "reason": "same as net_revenue", "status": "NOT_APPLICABLE"},
+    {"metric_name": "active_users", "reason": "same as net_revenue -- passthrough from tenant_metrics_daily, no independent user-session recomputation in dbt today", "status": "NOT_APPLICABLE"},
+    {
+      "metric_name": "churn_signal_rate",
+      "reason": "dbt computes this as churn_signal_count / nullif(active_users, 0) using the same passthrough churn_signal_count and active_users fields above -- a derived ratio of single-source inputs, not an independent second measurement.",
+      "status": "NOT_APPLICABLE"
+    },
+    {
+      "metric_name": "payment_failure_rate",
+      "reason": "dbt computes this ratio from the Kafka-consumer's own payment_success_count/payment_failure_count (tenant_metrics_daily), not from the independently-observed stg_payments counts -- it is a derived ratio of the serving-path's own numbers. The underlying counts it derives from (payment_success_count, payment_failure_count) ARE reconciled above; the ratio itself is not separately reconciled because it adds no new information once the counts match.",
+      "status": "NOT_APPLICABLE (covered indirectly via the underlying counts)"
+    }
+  ],
+  "quality_gate": {
+    "rule": "critical mismatch (any reconciled_metrics row where abs(serving_value - dbt_value) > allowed_tolerance) -> reconciliation FAIL",
+    "behavior_on_fail": "scripts/reconcile_kafka_dbt_metrics.py exits non-zero and reports every mismatched row; it never rewrites either value.",
+    "behavior_on_missing_tenant_or_date": "reported as status=MISSING_IN_SERVING or MISSING_IN_DBT, not silently skipped and not counted as a pass or a numeric mismatch."
+  }
+}

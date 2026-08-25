@@ -1,0 +1,53 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+  - /etc/prometheus/slo_rules.yml
+
+scrape_configs:
+  - job_name: analytics-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["analytics-service:8000"]
+
+  - job_name: ingestion-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["ingestion-service:8000"]
+
+  - job_name: processing-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["processing-service:8000"]
+
+  - job_name: metadata-service
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["metadata-service:8000"]
+
+  - job_name: demo-dashboard
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["demo-dashboard:8000"]
+
+  # Structured Streaming job driver (spark/streaming/streaming_job.py).
+  # Started with `docker compose --profile streaming up spark-streaming`;
+  # the target is absent from a default `docker compose up` and Prometheus
+  # will simply show it "down" until the streaming profile is started.
+  - job_name: spark-streaming
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["spark-streaming:8007"]
+
+  # ops-console: request metrics plus the DB-derived gauges in
+  # services/ops-console/app/observability.py (reliability exercise
+  # outcomes, reconciliation health, streaming checkpoint freshness,
+  # recent late-event volume). This is the one target that carries
+  # cloudscale_reliability_exercise_* and cloudscale_reconciliation_*
+  # metrics — they aren't emitted by any other service.
+  - job_name: ops-console
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["ops-console:8000"]

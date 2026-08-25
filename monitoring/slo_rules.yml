@@ -1,0 +1,34 @@
+groups:
+  - name: platform-slo
+    rules:
+      - alert: AnalyticsP95LatencyHigh
+        expr: histogram_quantile(0.95, sum(rate(platform_api_request_latency_seconds_bucket{service="analytics-service"}[10m])) by (le)) > 0.75
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: Analytics API p95 latency is above SLO.
+
+      - alert: IngestionPublishFailures
+        expr: sum(rate(platform_kafka_events_published_total{service="ingestion-service",status="failed"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Ingestion service is failing to publish Kafka events.
+
+      - alert: ProcessingFailures
+        expr: sum(rate(platform_kafka_events_processed_total{service="processing-service",status="failed"}[5m])) > 0
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Processing service is failing Kafka records.
+
+      - alert: CacheHitRateLow
+        expr: sum(rate(platform_cache_events_total{outcome="hit"}[10m])) / sum(rate(platform_cache_events_total{outcome=~"hit|miss"}[10m])) < 0.5
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: Analytics cache hit rate is low.

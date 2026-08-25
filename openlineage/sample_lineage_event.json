@@ -1,0 +1,24 @@
+{
+  "eventType": "COMPLETE",
+  "eventTime": "2026-05-25T16:45:00Z",
+  "job": {
+    "namespace": "data-platform-system",
+    "name": "backfill_tenant_metrics_daily"
+  },
+  "run": {
+    "runId": "sample-lineage-run-001"
+  },
+  "inputs": [
+    {"namespace": "postgres", "name": "processed_orders"},
+    {"namespace": "postgres", "name": "processed_payments"},
+    {"namespace": "postgres", "name": "processed_user_sessions"}
+  ],
+  "outputs": [
+    {"namespace": "postgres", "name": "tenant_metrics_daily"}
+  ],
+  "facets": {
+    "tenant": {"tenant_id": "tenant_demo"},
+    "status": {"status": "succeeded"},
+    "metadata": {"trigger": "sample-artifact", "window": "2026-05-01/2026-05-07"}
+  }
+}

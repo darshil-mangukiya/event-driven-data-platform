@@ -1,0 +1,79 @@
+{
+  "checks": [
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3.12",
+        "scripts/validate_event_contracts.py"
+      ],
+      "name": "event_contracts",
+      "status": "dry_run"
+    },
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3.12",
+        "scripts/check_contract_compatibility.py"
+      ],
+      "name": "contract_compatibility",
+      "status": "dry_run"
+    },
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3.12",
+        "scripts/validate_catalog.py"
+      ],
+      "name": "catalog",
+      "status": "dry_run"
+    },
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3.12",
+        "scripts/validate_sample_artifacts.py"
+      ],
+      "name": "samples",
+      "status": "dry_run"
+    },
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3.12",
+        "scripts/validate_privacy_catalog.py"
+      ],
+      "name": "privacy",
+      "status": "dry_run"
+    },
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3.12",
+        "scripts/schema_drift_report.py"
+      ],
+      "name": "schema_drift",
+      "status": "dry_run"
+    },
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3.12",
+        "scripts/validate_tenant_rls.py"
+      ],
+      "name": "rls",
+      "status": "dry_run"
+    },
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3.12",
+        "scripts/validate_metric_contracts.py"
+      ],
+      "name": "metric_contracts",
+      "status": "dry_run"
+    },
+    {
+      "command": [
+        "/opt/anaconda3/bin/python3.12",
+        "scripts/resilience_probe.py",
+        "--dry-run"
+      ],
+      "name": "resilience_probe",
+      "status": "dry_run"
+    }
+  ],
+  "generated_at": "2026-05-28T14:35:27.624685+00:00",
+  "status": "passed"
+}

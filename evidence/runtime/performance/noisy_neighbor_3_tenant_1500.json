@@ -1,0 +1,27 @@
+{
+  "batch_size": 50,
+  "batches": 30,
+  "benchmark_name": "noisy_neighbor_3_tenant_1500",
+  "created_at": "2026-09-03T02:42:25.496757+00:00",
+  "elapsed_seconds": 0.841,
+  "events": 1500,
+  "events_per_second": 1783.5643,
+  "failure_batches": 0,
+  "failure_rate": 0.0,
+  "host_cpu_count": 14,
+  "host_platform": "macOS-26.6.2-arm64-arm-64bit",
+  "hot_tenant_share": 0.8,
+  "local_scope_note": "Local benchmark runner; production-scale figures require distributed load generation.",
+  "max_latency_ms": 813.6025,
+  "p50_latency_ms": 714.6334,
+  "p95_latency_ms": 787.8718,
+  "p99_latency_ms": 813.6025,
+  "seed": 62020,
+  "target_url": "http://localhost:8001",
+  "tenant_batch_distribution": {
+    "tenant_demo": 24,
+    "tenant_enterprise": 3,
+    "tenant_marketplace": 3
+  },
+  "tenant_id": "tenant_demo,tenant_enterprise,tenant_marketplace"
+}

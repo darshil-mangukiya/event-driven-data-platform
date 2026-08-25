@@ -1,0 +1,44 @@
+# Minimal, justified policies — not added for every resource
+# just to check a box.
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: postgres-pdb
+  namespace: cloudscale
+spec:
+  minAvailable: 1
+  selector: {matchLabels: {app: postgres}}
+---
+# Only the platform's own services may reach PostgreSQL/Redis — nothing
+# else in the cluster (or namespace) needs to. This is a real, minimal
+# network-level enforcement of the same "only the platform touches its
+# own data" principle the app-layer tenant isolation already enforces.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: postgres-allow-platform-services
+  namespace: cloudscale
+spec:
+  podSelector: {matchLabels: {app: postgres}}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app: ingestion-service}}
+        - podSelector: {matchLabels: {app: processing-service}}
+        - podSelector: {matchLabels: {app: analytics-service}}
+        - podSelector: {matchLabels: {app: metadata-service}}
+      ports: [{protocol: TCP, port: 5432}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: redis-allow-platform-services
+  namespace: cloudscale
+spec:
+  podSelector: {matchLabels: {app: redis}}
+  policyTypes: ["Ingress"]
+  ingress:
+    - from:
+        - podSelector: {matchLabels: {app: analytics-service}}
+        - podSelector: {matchLabels: {app: ingestion-service}}
+      ports: [{protocol: TCP, port: 6379}]

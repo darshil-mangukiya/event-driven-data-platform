@@ -1,0 +1,16 @@
+{
+  "cached": false,
+  "count": 1,
+  "data": [
+    {
+      "average_order_value": 84.24,
+      "gross_revenue": 201884.0,
+      "metric_date": "2026-05-25",
+      "net_revenue": 184230.75,
+      "order_count": 2187,
+      "units_sold": 3412
+    }
+  ],
+  "metric": "revenue",
+  "tenant_id": "tenant_demo"
+}

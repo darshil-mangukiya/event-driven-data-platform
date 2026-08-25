@@ -1,0 +1,45 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: kafka-topic-bootstrap
+  namespace: {{ .Values.namespace }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation
+spec:
+  backoffLimit: 6
+  template:
+    metadata: {labels: {app: kafka-topic-bootstrap}}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: kafka-topics
+          image: confluentinc/cp-kafka:7.6.1
+          command: ["/bin/bash", "-ec"]
+          args:
+            - |
+              until kafka-topics --bootstrap-server kafka:9092 --list >/dev/null 2>&1; do sleep 2; done
+              ensure_topic() {
+                local topic="$1" partitions="$2" retention="$3"
+                kafka-topics --bootstrap-server kafka:9092 --create --if-not-exists \
+                  --topic "$topic" --partitions "$partitions" --replication-factor 1 \
+                  --config "retention.ms=$retention"
+                local current
+                current=$(kafka-topics --bootstrap-server kafka:9092 --describe --topic "$topic" \
+                  | sed -n 's/.*PartitionCount: \([0-9][0-9]*\).*/\1/p' | head -1)
+                if [ "$current" -lt "$partitions" ]; then
+                  kafka-topics --bootstrap-server kafka:9092 --alter --topic "$topic" --partitions "$partitions"
+                fi
+                kafka-configs --bootstrap-server kafka:9092 --entity-type topics --entity-name "$topic" \
+                  --alter --add-config "retention.ms=$retention"
+              }
+              ensure_topic platform.events.orders 12 604800000
+              ensure_topic platform.events.payments 12 604800000
+              ensure_topic platform.events.users 12 259200000
+              ensure_topic platform.events.products 6 604800000
+              ensure_topic platform.events.system 6 259200000
+              ensure_topic platform.events.retry 6 86400000
+              ensure_topic platform.events.dlq 6 1209600000
+          resources:
+            requests: {cpu: 25m, memory: 64Mi}
+            limits: {cpu: 250m, memory: 192Mi}

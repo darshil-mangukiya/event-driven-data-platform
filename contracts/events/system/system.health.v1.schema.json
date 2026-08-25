@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform.local/contracts/events/system/system.health.v1.schema.json",
+  "title": "system.health v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["service_name", "status", "error_count"],
+  "properties": {
+    "service_name": {"type": "string", "minLength": 1},
+    "status": {"type": "string", "enum": ["healthy", "degraded", "failed"]},
+    "latency_ms": {"type": ["number", "null"], "minimum": 0},
+    "error_count": {"type": "integer", "minimum": 0},
+    "throughput_per_minute": {"type": ["number", "null"], "minimum": 0},
+    "kafka_lag": {"type": ["integer", "null"], "minimum": 0},
+    "cache_hit_rate": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+    "message": {"type": ["string", "null"]}
+  }
+}

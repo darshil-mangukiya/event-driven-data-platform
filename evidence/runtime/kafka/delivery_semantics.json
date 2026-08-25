@@ -1,0 +1,20 @@
+{
+  "status": "EXECUTED AND VERIFIED",
+  "guarantee": "at-least-once delivery with idempotent database effects",
+  "event_id": "p6-redelivery-20260902",
+  "business_key": "ord_p6_redelivery_20260902",
+  "topic": "platform.events.orders",
+  "partition": 0,
+  "initial_offset": 1,
+  "initial_committed_offset": 2,
+  "reset_offset": 1,
+  "final_committed_offset": 2,
+  "processing_attempts_observed": 2,
+  "inbox_rows_before_redelivery": 1,
+  "inbox_rows_after_redelivery": 1,
+  "raw_event_rows_after_redelivery": 1,
+  "business_rows_after_redelivery": 1,
+  "duplicate_database_effects": 0,
+  "consumer_log_signal": "skipping duplicate event replay",
+  "exactly_once_claimed": false
+}

@@ -1,0 +1,338 @@
+{
+  "catalog_version": 1,
+  "domains": {
+    "platform": {
+      "owner": "data-platform",
+      "description": "Shared ingestion, processing, serving, and observability platform."
+    },
+    "finance": {
+      "owner": "finance-analytics",
+      "description": "Revenue and payment metrics."
+    },
+    "product": {
+      "owner": "product-analytics",
+      "description": "User activity, retention, and product performance."
+    },
+    "operations": {
+      "owner": "operations-analytics",
+      "description": "Catalog, inventory, pipeline health, and alerts."
+    }
+  },
+  "tables": [
+    {
+      "name": "raw_events",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "bronze",
+      "grain": "one row per event envelope",
+      "primary_keys": ["event_id"],
+      "traceability_fields": ["trace_id", "correlation_id", "causation_id", "idempotency_key"],
+      "upstream": ["kafka.domain_topics"],
+      "downstream": ["processed_orders", "processed_payments", "processed_user_sessions", "tenant_metrics_hourly", "spark.tenant_user_session_summary_stage"],
+      "note": "spark.tenant_user_session_summary_stage (spark/jobs/sessionization_job.py) reads directly from raw_events, bypassing processed_user_sessions entirely — a parallel batch sessionization path, not a downstream consumer of the async processing-service's output."
+    },
+    {
+      "name": "event_outbox",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "operational",
+      "grain": "one row per pending producer event",
+      "primary_keys": ["outbox_id"],
+      "upstream": ["source.transactional_systems"],
+      "downstream": ["kafka.domain_topics", "lineage_events"]
+    },
+    {
+      "name": "event_inbox",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "operational",
+      "grain": "one row per consumed event per consumer",
+      "primary_keys": ["consumer_name", "event_id"],
+      "upstream": ["kafka.domain_topics"],
+      "downstream": ["raw_events", "ops.pipeline_run_log"]
+    },
+    {
+      "name": "processed_orders",
+      "domain": "finance",
+      "owner": "finance-analytics",
+      "layer": "silver",
+      "grain": "one row per tenant order",
+      "primary_keys": ["tenant_id", "order_id"],
+      "upstream": ["raw_events"],
+      "downstream": ["tenant_metrics_hourly", "tenant_metrics_daily", "dbt.fct_product_performance"]
+    },
+    {
+      "name": "processed_payments",
+      "domain": "finance",
+      "owner": "finance-analytics",
+      "layer": "silver",
+      "grain": "one row per tenant payment",
+      "primary_keys": ["tenant_id", "payment_id"],
+      "upstream": ["raw_events"],
+      "downstream": ["tenant_metrics_hourly", "tenant_metrics_daily", "alerts"]
+    },
+    {
+      "name": "processed_user_sessions",
+      "domain": "product",
+      "owner": "product-analytics",
+      "layer": "silver",
+      "grain": "one row per user activity event",
+      "primary_keys": ["event_id"],
+      "upstream": ["raw_events"],
+      "downstream": ["tenant_metrics_hourly"]
+    },
+    {
+      "name": "tenant_metrics_hourly",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "gold",
+      "grain": "one row per tenant per hour",
+      "primary_keys": ["tenant_id", "metric_hour"],
+      "upstream": ["processed_orders", "processed_payments", "processed_user_sessions"],
+      "downstream": ["tenant_metrics_daily"]
+    },
+    {
+      "name": "tenant_metrics_daily",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "gold",
+      "grain": "one row per tenant per day",
+      "primary_keys": ["tenant_id", "metric_date"],
+      "upstream": ["tenant_metrics_hourly", "spark.batch_revenue_aggregates"],
+      "downstream": ["analytics.metrics_api", "dbt.fct_tenant_daily_metrics", "app.demo_dashboard", "reconciliation_audit"]
+    },
+    {
+      "name": "service_health_metrics",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "serving",
+      "grain": "one row per service health event",
+      "primary_keys": ["event_id"],
+      "upstream": ["system.health"],
+      "downstream": ["alerts", "analytics.tenant_health_score_api", "app.ops_console"]
+    },
+    {
+      "name": "alerts",
+      "domain": "operations",
+      "owner": "data-platform",
+      "layer": "serving",
+      "grain": "one row per alert",
+      "primary_keys": ["alert_id"],
+      "upstream": ["processed_payments", "service_health_metrics"],
+      "downstream": ["analytics.alerts_api", "app.demo_dashboard"]
+    },
+    {
+      "name": "data_quality_score_daily",
+      "domain": "operations",
+      "owner": "data-platform",
+      "layer": "serving",
+      "grain": "one row per tenant per day",
+      "primary_keys": ["tenant_id", "score_date"],
+      "upstream": ["data_quality_check_results"],
+      "downstream": ["app.demo_dashboard"]
+    },
+    {
+      "name": "reconciliation_audit",
+      "domain": "operations",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per tenant metric reconciliation check result (check_name distinguishes revenue/payment/customer_activity checks)",
+      "primary_keys": ["reconciliation_id"],
+      "upstream": ["tenant_metrics_daily", "processed_orders", "processed_payments", "processed_user_sessions"],
+      "downstream": ["docs.reconciliation", "platform.runbooks"]
+    },
+    {
+      "name": "pipeline_run_log",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per pipeline/job run (backfills, reliability exercises, async processing-service pipelines)",
+      "primary_keys": ["pipeline_run_id"],
+      "upstream": ["scripts.backfill_metrics", "reliability.runner", "processing-service"],
+      "downstream": ["app.ops_console", "app.demo_dashboard", "lineage_events", "analytics.metrics_api"]
+    },
+    {
+      "name": "data_quality_check_results",
+      "domain": "operations",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per data quality check per tenant per run",
+      "primary_keys": ["check_id"],
+      "upstream": ["raw_events", "processed_orders"],
+      "downstream": ["data_quality_score_daily"]
+    },
+    {
+      "name": "lineage_events",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per pipeline lineage event",
+      "primary_keys": ["lineage_event_id"],
+      "upstream": ["pipeline_run_log", "spark.jobs", "dbt.jobs"],
+      "downstream": ["docs.openlineage_tracking", "platform.runbooks", "app.ops_console"]
+    },
+    {
+      "name": "pipeline_watermarks",
+      "domain": "operations",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per pipeline, tenant, and source topic checkpoint",
+      "primary_keys": ["pipeline_name", "tenant_id", "source_topic"],
+      "upstream": ["kafka.domain_topics", "processing-service"],
+      "downstream": ["platform_cli.ops_watermarks", "slo.metric_freshness_alerts"]
+    },
+    {
+      "name": "privacy_erasure_requests",
+      "domain": "operations",
+      "owner": "data-platform-governance",
+      "layer": "governance",
+      "grain": "one row per tenant subject erasure request",
+      "primary_keys": ["request_id"],
+      "upstream": ["governance.pii_classification"],
+      "downstream": ["sql.privacy_erasure_plan", "platform.audit"]
+    },
+    {
+      "name": "data_retention_policies",
+      "domain": "operations",
+      "owner": "data-platform-governance",
+      "layer": "governance",
+      "grain": "one row per table retention policy",
+      "primary_keys": ["policy_id"],
+      "upstream": ["governance.pii_classification"],
+      "downstream": ["privacy_erasure_requests", "platform.audit"]
+    },
+    {
+      "name": "stream_processing_runs",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "operational",
+      "grain": "one row per Structured Streaming job invocation",
+      "primary_keys": ["run_id"],
+      "upstream": ["spark.streaming.streaming_job"],
+      "downstream": ["streaming_checkpoint_audit", "streaming_failures", "streaming_watermarks", "app.ops_console"]
+    },
+    {
+      "name": "stream_window_metrics",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "gold",
+      "grain": "one row per tenant, event-time window, domain, and metric",
+      "primary_keys": ["tenant_id", "window_start", "window_end", "event_domain", "metric_name"],
+      "upstream": ["kafka.domain_topics", "spark.streaming.streaming_job"],
+      "downstream": ["app.ops_console"],
+      "note": "Not yet served by analytics.metrics_api — the API serves tenant_metrics_daily (async path) only; see docs/data-products.md's revenue product known_limitations. Do not add analytics.metrics_api here until the API actually queries this table."
+    },
+    {
+      "name": "streaming_watermarks",
+      "domain": "operations",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per streaming run per micro-batch event-time watermark",
+      "primary_keys": ["run_id", "batch_id"],
+      "upstream": ["spark.streaming.streaming_job"],
+      "downstream": ["docs.streaming_architecture"],
+      "note": "Written by PostgresSink.write_watermark (spark/streaming/sinks.py) but not currently read back by any service — the live watermark lag signal operators actually see is cloudscale_stream_watermark_lag_seconds (a Prometheus gauge, not a query against this table). Do not list app.ops_console as a downstream consumer until it actually queries this table."
+    },
+    {
+      "name": "streaming_checkpoint_audit",
+      "domain": "operations",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per streaming query per committed micro-batch",
+      "primary_keys": ["run_id", "query_name", "batch_id"],
+      "upstream": ["spark.streaming.streaming_job"],
+      "downstream": ["app.ops_console"],
+      "note": "The consumer-interruption reliability exercise (reliability/scenarios/consumer_interruption.py) proves the same checkpoint-recovery *mechanism* but against its own isolated, ephemeral temp checkpoint directory — it never writes to this table. Do not list it as a downstream consumer here; see docs/reliability.md instead."
+    },
+    {
+      "name": "streaming_failures",
+      "domain": "operations",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per streaming sink/stage failure",
+      "primary_keys": ["failure_id"],
+      "upstream": ["spark.streaming.streaming_job"],
+      "downstream": ["app.ops_console", "reliability.incident_artifacts"]
+    },
+    {
+      "name": "streaming_late_events",
+      "domain": "operations",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per tenant per event classified late/duplicate by the streaming job",
+      "primary_keys": ["tenant_id", "event_id"],
+      "upstream": ["spark.streaming.streaming_job"],
+      "downstream": ["reconciliation_audit", "app.ops_console", "reliability.late_event_exercise"]
+    },
+    {
+      "name": "schema_registry_subjects",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "governance",
+      "grain": "one row per registered Kafka Schema Registry subject",
+      "primary_keys": ["subject"],
+      "upstream": ["services.schema_registry_service"],
+      "downstream": [],
+      "note": "Runtime Schema Registry compatibility mode enforced per subject. scripts/validate_schema_registry.py calls this table's data via the registry's HTTP API, not by name in SQL, so it is not listed as a verifiable downstream edge here."
+    },
+    {
+      "name": "schema_registry_versions",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "governance",
+      "grain": "one row per registered schema version for a subject (immutable once written)",
+      "primary_keys": ["subject", "version"],
+      "upstream": ["services.schema_registry_service"],
+      "downstream": [],
+      "note": "Bootstrapped from contracts/registry.json by scripts/validate_schema_registry.py --bootstrap, via the registry's HTTP API (not a direct SQL reference, so not listed as a verifiable downstream edge here)."
+    },
+    {
+      "name": "schema_registry_compatibility_checks",
+      "domain": "platform",
+      "owner": "data-platform",
+      "layer": "observability",
+      "grain": "one row per compatibility evaluation the registry has run (both real registrations and dry-run checks)",
+      "primary_keys": ["id"],
+      "upstream": ["services.schema_registry_service"],
+      "downstream": [],
+      "note": "Audit trail recording compatibility checks executed by the enforcement layer."
+    }
+  ],
+  "metrics": [
+    {
+      "name": "net_revenue",
+      "owner": "finance-analytics",
+      "definition": "Sum of order gross revenue minus discounts.",
+      "source_table": "tenant_metrics_daily",
+      "dimensions": ["tenant_id", "metric_date"]
+    },
+    {
+      "name": "payment_failure_rate",
+      "owner": "finance-risk",
+      "definition": "Payment failures divided by total payment attempts.",
+      "source_table": "tenant_metrics_daily",
+      "dimensions": ["tenant_id", "metric_date"]
+    },
+    {
+      "name": "tenant_health_score",
+      "owner": "data-platform",
+      "definition": "Composite score using recent payment failures, churn signals, and event processing.",
+      "source_table": "tenant_metrics_daily",
+      "dimensions": ["tenant_id"]
+    },
+    {
+      "name": "average_order_value",
+      "owner": "finance-analytics",
+      "definition": "Net revenue divided by order count for a tenant and period.",
+      "source_table": "tenant_metrics_daily",
+      "dimensions": ["tenant_id", "metric_date"]
+    },
+    {
+      "name": "data_quality_score",
+      "owner": "data-platform",
+      "definition": "Daily score based on data freshness, validity, uniqueness, range, and anomaly checks.",
+      "source_table": "data_quality_score_daily",
+      "dimensions": ["tenant_id", "score_date"]
+    }
+  ]
+}

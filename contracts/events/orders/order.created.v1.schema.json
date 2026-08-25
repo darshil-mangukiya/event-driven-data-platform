@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform.local/contracts/events/orders/order.created.v1.schema.json",
+  "title": "order.created v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["order_id", "customer_id", "product_id", "quantity", "unit_price", "status", "channel"],
+  "properties": {
+    "order_id": {"type": "string", "minLength": 1},
+    "customer_id": {"type": "string", "minLength": 1},
+    "product_id": {"type": "string", "minLength": 1},
+    "quantity": {"type": "integer", "minimum": 1},
+    "unit_price": {"type": "number", "minimum": 0},
+    "discount_amount": {"type": "number", "minimum": 0},
+    "currency": {"type": "string", "minLength": 3, "maxLength": 3},
+    "status": {"type": "string", "enum": ["created", "updated", "cancelled"]},
+    "channel": {"type": "string"},
+    "marketing_campaign_id": {"type": ["string", "null"]},
+    "region": {"type": ["string", "null"]}
+  }
+}

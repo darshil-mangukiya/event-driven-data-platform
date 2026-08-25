@@ -1,0 +1,10 @@
+{
+  "service_name": "processing-service",
+  "status": "healthy",
+  "latency_ms": 42.8,
+  "error_count": 0,
+  "throughput_per_minute": 4800.0,
+  "kafka_lag": 12,
+  "cache_hit_rate": 0.91,
+  "message": "contract fixture"
+}

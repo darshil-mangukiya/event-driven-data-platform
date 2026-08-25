@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform.local/contracts/events/products/product.inventory_changed.v1.schema.json",
+  "title": "product.inventory_changed v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["product_id", "sku", "name", "category", "price", "inventory_delta", "active"],
+  "properties": {
+    "product_id": {"type": "string", "minLength": 1},
+    "sku": {"type": "string", "minLength": 1},
+    "name": {"type": "string", "minLength": 1},
+    "category": {"type": "string", "minLength": 1},
+    "price": {"type": "number", "minimum": 0},
+    "inventory_delta": {"type": "integer"},
+    "active": {"type": "boolean"}
+  }
+}

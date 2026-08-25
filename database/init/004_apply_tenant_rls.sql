@@ -1,0 +1,19 @@
+-- Applies the platform's tenant row-level-security policy automatically
+-- on a brand-new local Postgres initialization. This file intentionally
+-- contains no security logic of its own — it is a one-line include of
+-- the single authoritative source, database/security/tenant_rls.sql
+-- (mounted into this container at /security-sql/tenant_rls.sql, see
+-- docker-compose.yml), so there is exactly one copy of the real RLS SQL
+-- anywhere in this repository. Runs after 001_schema.sql (which creates
+-- the 11 tables this depends on) and after the 002/003 seed scripts, per
+-- Docker's documented lexical ordering of docker-entrypoint-initdb.d.
+--
+-- docker-entrypoint-initdb.d only executes against a truly empty
+-- PostgreSQL data directory — this does NOT re-run against an existing,
+-- already-initialized volume. For an existing volume created before this
+-- automation existed, apply the same file by hand:
+--   psql -h <host> -p <port> -U platform -d data_platform \
+--     -f database/security/tenant_rls.sql
+-- (safe to run more than once — every statement in tenant_rls.sql is
+-- idempotent).
+\i /security-sql/tenant_rls.sql

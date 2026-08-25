@@ -1,0 +1,401 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: data_platform
+      POSTGRES_USER: platform
+      POSTGRES_PASSWORD: platform
+    ports:
+      - "127.0.0.1:${POSTGRES_HOST_PORT:-5432}:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d:ro
+      # database/init/004_apply_tenant_rls.sql (which runs automatically,
+      # in order, as part of the mount above) does `\i` on the file
+      # mounted here — the single authoritative copy of the RLS SQL
+      # (scripts/validate_tenant_rls.py and the evidence docs read this
+      # same path). Mounted at a separate container path, not nested
+      # inside the already-read-only /docker-entrypoint-initdb.d mount
+      # above (Docker/OCI cannot create a new mountpoint inside an
+      # existing read-only directory mount — confirmed live during this
+      # fix). Runs only against a brand-new, empty data directory — an
+      # existing volume is unaffected (see
+      # evidence/validation/rls-fresh-init-verification.md).
+      - ./database/security:/security-sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U platform -d data_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - ./redis/redis.conf:/usr/local/etc/redis/redis.conf:ro
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    # Pinned to a dated release.
+    # Pinned on 2026-08-22, matching the project's
+    # existing image-pinning convention (postgres:16, redis:7, etc.).
+    # Content digest at pin time: sha256:14cea493d9a34af32f524e538b8346cf79f3321eff8e708c1e2960462bd8936e
+    image: minio/minio:RELEASE.2025-09-07T16-13-09Z
+    command: ["server", "/data", "--console-address", ":9001"]
+    environment:
+      MINIO_ROOT_USER: platform
+      MINIO_ROOT_PASSWORD: local-minio-secret-change-me
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
+    volumes:
+      - minio-data:/data
+
+  minio-init:
+    # Pinned alongside minio (see above). Content digest at pin time:
+    # sha256:a7fe349ef4bd8521fb8497f55c6042871b2ae640607cf99d9bede5e9bdf11727
+    image: minio/mc:RELEASE.2025-08-13T08-35-41Z
+    depends_on:
+      - minio
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - >
+        until mc alias set local http://minio:9000 platform local-minio-secret-change-me; do sleep 2; done &&
+        mc mb --ignore-existing local/data-platform &&
+        mc anonymous set none local/data-platform
+
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.6.1
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "127.0.0.1:2181:2181"
+
+  kafka:
+    image: confluentinc/cp-kafka:7.6.1
+    depends_on:
+      - zookeeper
+    ports:
+      - "127.0.0.1:9092:9092"
+      - "127.0.0.1:29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    healthcheck:
+      test: ["CMD", "kafka-topics", "--bootstrap-server", "kafka:9092", "--list"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+
+  ingestion-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_PATH: services/ingestion-service
+    env_file: .env.example
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    ports:
+      - "127.0.0.1:8001:8000"
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  processing-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_PATH: services/processing-service
+    env_file: .env.example
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      KAFKA_CONSUMER_GROUP: processing-service
+      KAFKA_ENABLE_CONSUMER: "true"
+      # Runtime DB identity: platform_tenant_scoped (NOSUPERUSER,
+      # NOBYPASSRLS), not the .env.example default (`platform`, a
+      # PostgreSQL superuser, which unconditionally bypasses row-level
+      # security). Every write in app/repository.py that carries a real
+      # tenant_id now goes through Postgres.execute_scoped(), which sets
+      # PostgreSQL's `app.tenant_id` transaction-locally before the write
+      # — RLS's `with check` clause on each of the 11 protected tables
+      # independently enforces that the row's tenant_id matches. See
+      # evidence/validation/application-rls-runtime-verification.md.
+      DATABASE_URL: postgresql://platform_tenant_scoped:local-tenant-scoped-change-me@postgres:5432/data_platform
+    ports:
+      - "127.0.0.1:8002:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  analytics-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_PATH: services/analytics-service
+    env_file: .env.example
+    environment:
+      # Runtime DB identity: platform_tenant_scoped (NOSUPERUSER,
+      # NOBYPASSRLS), not the .env.example default (`platform`, a
+      # PostgreSQL superuser, which unconditionally bypasses row-level
+      # security). This is the tenant-facing analytics API — every
+      # tenant-scoped query in app/repository.py goes through
+      # Postgres.fetch_scoped()/fetchrow_scoped(), which sets
+      # PostgreSQL's `app.tenant_id` transaction-locally before the
+      # query — RLS then independently enforces the tenant boundary at
+      # the database, in addition to this service's own WHERE-clause/JWT
+      # authorization. See
+      # evidence/validation/application-rls-runtime-verification.md.
+      DATABASE_URL: postgresql://platform_tenant_scoped:local-tenant-scoped-change-me@postgres:5432/data_platform
+    ports:
+      - "127.0.0.1:8003:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  metadata-service:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_PATH: services/metadata-service
+    env_file: .env.example
+    environment:
+      # Runtime DB identity: platform_admin_bypass (NOSUPERUSER, but
+      # BYPASSRLS), not the .env.example default (`platform`, a
+      # PostgreSQL superuser). This service manages tenant_config/
+      # tenant_users/tenant_products directly — none of these are
+      # tenant-scoped RLS-protected tables (tenant provisioning is
+      # inherently cross-tenant: you cannot list/create tenants from
+      # inside a single tenant's RLS boundary). BYPASSRLS is irrelevant
+      # here in practice (no policy exists on these tables to bypass);
+      # the change that matters is dropping SUPERUSER for ordinary
+      # runtime traffic. See
+      # evidence/validation/application-rls-runtime-verification.md.
+      DATABASE_URL: postgresql://platform_admin_bypass:local-admin-bypass-change-me@postgres:5432/data_platform
+    ports:
+      - "127.0.0.1:8004:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  schema-registry:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_PATH: services/schema-registry-service
+    env_file: .env.example
+    environment:
+      # Runtime DB identity: platform_admin_bypass (NOSUPERUSER), not the
+      # .env.example default (`platform`, a PostgreSQL superuser). This
+      # service has no tenant concept at all — schema_subjects/
+      # schema_versions are platform-wide governance data, not tenant
+      # data, so RLS enforcement doesn't apply here; the change that
+      # matters is dropping SUPERUSER for ordinary runtime traffic.
+      DATABASE_URL: postgresql://platform_admin_bypass:local-admin-bypass-change-me@postgres:5432/data_platform
+    ports:
+      - "127.0.0.1:8010:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  demo-dashboard:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_PATH: services/demo-dashboard
+    env_file: .env.example
+    environment:
+      # Runtime DB identity: platform_tenant_scoped (NOSUPERUSER,
+      # NOBYPASSRLS), not the .env.example default (`platform`, a
+      # PostgreSQL superuser). This is an intentionally open,
+      # unauthenticated read-only local view —
+      # tenant_id comes from an unverified query parameter, not a signed
+      # JWT/principal, and *which* tenant a visitor can pick is not, and
+      # is not meant to be, restricted. What matters is that whichever
+      # tenant_id is selected, the database itself, in addition to this
+      # service's own WHERE clause — constrains every RLS-protected-table
+      # query to exactly that tenant: app/main.py sets PostgreSQL's
+      # app.tenant_id transaction-locally (Postgres.fetch_scoped()) for
+      # every query against tenant_metrics_daily/alerts/
+      # service_health_metrics. tenant_config/data_quality_score_daily/
+      # pipeline_run_log/benchmark_run_results are not RLS-protected
+      # tables and intentionally stay unscoped. See docs/security.md and
+      # evidence/validation/application-rls-runtime-verification.md.
+      DATABASE_URL: postgresql://platform_tenant_scoped:local-tenant-scoped-change-me@postgres:5432/data_platform
+    ports:
+      - "127.0.0.1:8005:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  ops-console:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.service
+      args:
+        SERVICE_PATH: services/ops-console
+    env_file: .env.example
+    environment:
+      # Runtime DB identity: platform_admin_bypass (NOSUPERUSER), not the
+      # .env.example default (`platform`, a PostgreSQL superuser). This
+      # is an internal, unauthenticated operator dashboard that
+      # deliberately queries across tenants for operational visibility
+      # (event_outbox/event_inbox backlog, cross-tenant lineage, etc.) —
+      # not tenant-facing, needs genuine cross-tenant reads. The fix that
+      # matters is dropping SUPERUSER for ordinary runtime traffic. See
+      # evidence/validation/application-rls-runtime-verification.md.
+      DATABASE_URL: postgresql://platform_admin_bypass:local-admin-bypass-change-me@postgres:5432/data_platform
+    ports:
+      - "127.0.0.1:8006:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  spark-master:
+    image: bitnamilegacy/spark:3.5.1
+    environment:
+      SPARK_MODE: master
+      AWS_ACCESS_KEY_ID: platform
+      AWS_SECRET_ACCESS_KEY: local-minio-secret-change-me
+      S3_ENDPOINT: http://minio:9000
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:7077:7077"
+    volumes:
+      - ./spark:/opt/data-platform/spark
+
+  spark-worker:
+    image: bitnamilegacy/spark:3.5.1
+    environment:
+      SPARK_MODE: worker
+      SPARK_MASTER_URL: spark://spark-master:7077
+      AWS_ACCESS_KEY_ID: platform
+      AWS_SECRET_ACCESS_KEY: local-minio-secret-change-me
+      S3_ENDPOINT: http://minio:9000
+    depends_on:
+      - spark-master
+    volumes:
+      - ./spark:/opt/data-platform/spark
+
+  # Structured Streaming job: Kafka -> Spark Structured Streaming -> PostgreSQL.
+  # Runs `spark-submit` in local[*] mode inside the Spark image, matching how
+  # the existing batch jobs (spark/jobs/*.py) are invoked from Airflow — see
+  # docs/streaming_architecture.md for why this job doesn't need the
+  # spark-master/spark-worker cluster to demonstrate real Structured
+  # Streaming behavior at local/demo scale. Not started by default (profile
+  # "streaming") since it expects Kafka topics to already have producer
+  # traffic; run with `make streaming-demo` or
+  # `docker compose --profile streaming up spark-streaming`.
+  spark-streaming:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.spark
+    image: p6-spark-streaming:local
+    profiles: ["streaming"]
+    # Root is used only by the tiny shell prelude to initialize ownership on
+    # the named checkpoint volume; `setpriv` drops to uid 1001 before Spark.
+    user: "0:0"
+    working_dir: /opt/data-platform
+    entrypoint: ["/bin/bash", "-c"]
+    command:
+      - >
+        install -d -o 1001 -g 0 /opt/data-platform/spark-checkpoints &&
+        exec setpriv --reuid=1001 --regid=0 --clear-groups
+        spark-submit
+        --master local[2]
+        --properties-file /opt/data-platform/spark/conf/spark-defaults.conf
+        /opt/data-platform/spark/streaming/streaming_job.py
+    environment:
+      # The legacy Bitnami image runs without a conventional HOME. Spark's
+      # Ivy resolver otherwise derives the invalid path `?/.ivy2/local` and
+      # exits before it can resolve the Kafka/PostgreSQL connector packages.
+      # Keep the dependency cache explicit, writable, and container-local.
+      SPARK_SUBMIT_OPTS: "-Divy.home=/tmp/.ivy2 -Divy.cache.dir=/tmp/.ivy2/cache -Duser.name=spark"
+      # Hadoop's local-user lookup also needs a concrete identity in this
+      # minimal image; without it UnixLoginModule receives a null username.
+      HOME: /tmp
+      USER: spark
+      HADOOP_USER_NAME: spark
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Spark's JDBC writer performs batch upserts without a transaction-local
+      # tenant-context hook, so the optional streaming path uses the dedicated
+      # non-superuser BYPASSRLS role. See docs/security.md.
+      DATABASE_URL: postgresql://platform_admin_bypass:local-admin-bypass-change-me@postgres:5432/data_platform
+      STREAMING_JDBC_URL: jdbc:postgresql://postgres:5432/data_platform
+      STREAMING_JDBC_USER: platform_admin_bypass
+      STREAMING_JDBC_PASSWORD: local-admin-bypass-change-me
+      STREAMING_CHECKPOINT_ROOT: /opt/data-platform/spark-checkpoints
+      STREAMING_METRICS_PORT: "8007"
+      PYTHONPATH: /opt/data-platform
+    ports:
+      - "127.0.0.1:8007:8007"
+    volumes:
+      - ./spark:/opt/data-platform/spark
+      - spark-checkpoints:/opt/data-platform/spark-checkpoints
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:v2.52.0
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./monitoring/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - ./monitoring/slo_rules.yml:/etc/prometheus/slo_rules.yml:ro
+    depends_on:
+      - analytics-service
+      - ingestion-service
+      - processing-service
+      - metadata-service
+      - ops-console
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana_dashboard.json:/var/lib/grafana/dashboards/cloudscale.json:ro
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - prometheus
+
+volumes:
+  postgres-data:
+  redis-data:
+  minio-data:
+  spark-checkpoints:
+  grafana-data:

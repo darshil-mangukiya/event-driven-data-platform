@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://data-platform.local/schemas/v1/payment-payload.schema.json",
+  "title": "Payment Payload",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["payment_id", "order_id", "customer_id", "amount", "status"],
+  "properties": {
+    "payment_id": {"type": "string"},
+    "order_id": {"type": "string"},
+    "customer_id": {"type": "string"},
+    "amount": {"type": "number", "minimum": 0},
+    "currency": {"type": "string", "minLength": 3, "maxLength": 3},
+    "status": {"type": "string"},
+    "payment_method": {"type": "string"},
+    "failure_code": {"type": ["string", "null"]},
+    "risk_score": {"type": ["number", "null"], "minimum": 0, "maximum": 1}
+  }
+}
+

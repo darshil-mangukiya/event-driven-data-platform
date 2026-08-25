@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/contracts/order-payload-v2.schema.json",
+  "title": "OrderPayloadV2",
+  "type": "object",
+  "additionalProperties": true,
+  "required": ["order_id", "customer_id", "product_id", "quantity", "unit_price"],
+  "properties": {
+    "order_id": {"type": "string"},
+    "customer_id": {"type": "string"},
+    "product_id": {"type": "string"},
+    "quantity": {"type": "integer", "minimum": 1},
+    "unit_price": {"type": "number", "minimum": 0},
+    "discount_amount": {"type": "number", "minimum": 0, "default": 0},
+    "tax_amount": {"type": "number", "minimum": 0, "default": 0},
+    "currency": {"type": "string", "minLength": 3, "maxLength": 3, "default": "USD"},
+    "status": {"type": "string", "default": "created"},
+    "fulfillment_status": {"type": "string", "default": "unfulfilled"},
+    "channel": {"type": "string", "default": "web"},
+    "marketing_campaign_id": {"type": ["string", "null"]},
+    "region": {"type": ["string", "null"]}
+  }
+}

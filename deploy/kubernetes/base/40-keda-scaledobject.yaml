@@ -1,0 +1,36 @@
+# KEDA ScaledObject for the processing-service Kafka consumer, scaling on
+# real consumer-group lag for the order-events topic (the highest-volume
+# real topic — 12 partitions, see platform_shared.kafka.TOPIC_DEFINITIONS).
+# Group name and topic are the platform's real, existing values
+# (KAFKA_CONSUMER_GROUP="processing-service" from .env.example /
+# services/processing-service), not invented ones.
+apiVersion: keda.sh/v1alpha1
+kind: ScaledObject
+metadata:
+  name: processing-service-kafka-lag
+  namespace: cloudscale
+spec:
+  scaleTargetRef:
+    name: processing-service
+  minReplicaCount: 1
+  maxReplicaCount: 5
+  pollingInterval: 15
+  cooldownPeriod: 60
+  advanced:
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 30
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 15
+  triggers:
+    - type: kafka
+      metadata:
+        bootstrapServers: kafka.cloudscale.svc.cluster.local:9092
+        consumerGroup: processing-service
+        topic: platform.events.orders
+        lagThreshold: "50"
+        activationLagThreshold: "5"
+        allowIdleConsumers: "false"

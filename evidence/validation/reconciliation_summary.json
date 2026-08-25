@@ -1,0 +1,10 @@
+{
+  "checks": [
+    "raw event count versus processed records",
+    "tenant daily aggregate revenue deltas",
+    "order count and units sold deltas",
+    "DLQ and rejected event review"
+  ],
+  "mode": "dry_run",
+  "next_command": "PYTHONPATH=services/shared python scripts/reconciliation_summary.py --tenant-id tenant_demo --days 7 --dry-run --pretty"
+}

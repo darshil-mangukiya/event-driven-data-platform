@@ -1,0 +1,11 @@
+{
+  "status": "EXECUTED AND VERIFIED",
+  "registry": "project-native schema registry service",
+  "health": "healthy",
+  "subjects": 5,
+  "versions_per_subject": 1,
+  "compatible_evolution_cases": {"executed": 2, "accepted": 2},
+  "incompatible_evolution_cases": {"executed": 2, "rejected": 2},
+  "producer_and_consumer_validation": "covered by runtime path and tests",
+  "limitation": "No Confluent Schema Registry is claimed."
+}

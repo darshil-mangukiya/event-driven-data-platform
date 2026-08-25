@@ -1,0 +1,37 @@
+topics:
+  - name: platform.events.orders
+    partitions: 12
+    replication_factor: 1
+    retention_ms: 604800000
+    partition_key: tenant_id:order_id
+  - name: platform.events.payments
+    partitions: 12
+    replication_factor: 1
+    retention_ms: 604800000
+    partition_key: tenant_id:payment_id
+  - name: platform.events.users
+    partitions: 12
+    replication_factor: 1
+    retention_ms: 259200000
+    partition_key: tenant_id:user_id
+  - name: platform.events.products
+    partitions: 6
+    replication_factor: 1
+    retention_ms: 604800000
+    partition_key: tenant_id:product_id
+  - name: platform.events.system
+    partitions: 6
+    replication_factor: 1
+    retention_ms: 259200000
+    partition_key: tenant_id:service_name
+  - name: platform.events.retry
+    partitions: 6
+    replication_factor: 1
+    retention_ms: 86400000
+    partition_key: tenant_id:original_event_id
+  - name: platform.events.dlq
+    partitions: 6
+    replication_factor: 1
+    retention_ms: 1209600000
+    partition_key: tenant_id:original_event_id
+

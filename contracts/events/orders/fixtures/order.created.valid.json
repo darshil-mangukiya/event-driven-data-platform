@@ -1,0 +1,13 @@
+{
+  "order_id": "ord_contract_1001",
+  "customer_id": "cust_contract_001",
+  "product_id": "prod_contract_001",
+  "quantity": 2,
+  "unit_price": 125.0,
+  "discount_amount": 10.0,
+  "currency": "USD",
+  "status": "created",
+  "channel": "web",
+  "marketing_campaign_id": "paid-search",
+  "region": "na"
+}

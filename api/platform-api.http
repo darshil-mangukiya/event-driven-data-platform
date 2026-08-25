@@ -1,0 +1,44 @@
+### Ingest one tenant-scoped event
+POST http://localhost:8001/events
+X-Tenant-ID: tenant_demo
+Content-Type: application/json
+
+{
+  "tenant_id": "tenant_demo",
+  "event_type": "order.created",
+  "source_service": "api-client",
+  "payload": {
+    "order_id": "ord_local_001",
+    "customer_id": "cust_001",
+    "product_id": "prod_001",
+    "quantity": 2,
+    "unit_price": 49.0,
+    "discount_amount": 5.0,
+    "status": "created",
+    "channel": "web",
+    "marketing_campaign_id": "paid-search",
+    "region": "na"
+  }
+}
+
+### Issue local JWT
+POST http://localhost:8004/auth/token
+X-Tenant-ID: tenant_demo
+Content-Type: application/json
+
+{
+  "tenant_id": "tenant_demo",
+  "user_id": "analyst_demo",
+  "role": "tenant_analyst",
+  "scopes": ["metrics:read", "events:write"],
+  "expires_in_seconds": 3600
+}
+
+### Query cached revenue metrics
+GET http://localhost:8003/metrics/revenue?tenant_id=tenant_demo&limit=7
+X-Tenant-ID: tenant_demo
+
+### Platform admin tenant list
+GET http://localhost:8004/tenants
+X-Tenant-ID: tenant_demo
+X-User-Role: platform_admin

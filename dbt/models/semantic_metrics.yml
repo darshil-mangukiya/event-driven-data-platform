@@ -1,0 +1,63 @@
+semantic_models:
+  - name: tenant_daily_metrics_semantic
+    model: ref('fct_tenant_daily_metrics')
+    description: Tenant-scoped daily serving metrics exposed through APIs and BI marts.
+    defaults:
+      agg_time_dimension: metric_date
+    entities:
+      - name: tenant
+        type: primary
+        expr: tenant_id
+    dimensions:
+      - name: metric_date
+        type: time
+        type_params:
+          time_granularity: day
+      - name: tenant_id
+        type: categorical
+    measures:
+      - name: net_revenue
+        agg: sum
+        expr: net_revenue
+      - name: gross_revenue
+        agg: sum
+        expr: gross_revenue
+      - name: order_count
+        agg: sum
+        expr: order_count
+      - name: active_users
+        agg: sum
+        expr: active_users
+      - name: payment_failure_count
+        agg: sum
+        expr: payment_failure_count
+
+metrics:
+  - name: tenant_net_revenue
+    description: Sum of tenant net revenue after discounts.
+    type: simple
+    label: Tenant Net Revenue
+    type_params:
+      measure: net_revenue
+
+  - name: tenant_order_count
+    description: Count of tenant orders by day.
+    type: simple
+    label: Tenant Order Count
+    type_params:
+      measure: order_count
+
+  - name: tenant_average_order_value
+    description: Net revenue divided by order count.
+    type: ratio
+    label: Tenant Average Order Value
+    type_params:
+      numerator: tenant_net_revenue
+      denominator: tenant_order_count
+
+  - name: tenant_payment_failure_count
+    description: Count of failed payment events by tenant/day.
+    type: simple
+    label: Tenant Payment Failures
+    type_params:
+      measure: payment_failure_count

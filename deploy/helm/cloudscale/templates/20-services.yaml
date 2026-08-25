@@ -1,0 +1,57 @@
+{{- range $key, $svc := .Values.services }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $svc.name }}
+  namespace: {{ $.Values.namespace }}
+spec:
+  replicas: {{ $svc.replicas }}
+  selector: {matchLabels: {app: {{ $svc.name }}}}
+  template:
+    metadata: {labels: {app: {{ $svc.name }}}}
+    spec:
+      containers:
+        - name: {{ $svc.name }}
+          image: "{{ $svc.image }}:{{ $.Values.image.tag }}"
+          imagePullPolicy: {{ $.Values.image.pullPolicy }}
+          ports: [{containerPort: 8000}]
+          envFrom:
+            - configMapRef: {name: cloudscale-config}
+          {{- /* Overrides the ConfigMap's DATABASE_URL (the `platform`
+          superuser) with a non-superuser role — explicit env entries win
+          over envFrom for the same name. processing/analytics are
+          tenant-facing/per-event-scoped (platform_tenant_scoped,
+          NOSUPERUSER, NOBYPASSRLS); metadata does inherently cross-tenant
+          tenant-provisioning (platform_admin_bypass, NOSUPERUSER,
+          BYPASSRLS). ingestion has no PostgreSQL connection at all, so it
+          keeps the ConfigMap default untouched. See
+          evidence/validation/application-rls-runtime-verification.md. */}}
+          {{- if or (eq $key "processing") (eq $key "analytics") }}
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://{{ $.Values.secrets.tenantScopedUser }}:{{ $.Values.secrets.tenantScopedPassword }}@postgres:5432/{{ $.Values.config.postgresDb }}"
+          {{- else if eq $key "metadata" }}
+          env:
+            - name: DATABASE_URL
+              value: "postgresql://{{ $.Values.secrets.adminBypassUser }}:{{ $.Values.secrets.adminBypassPassword }}@postgres:5432/{{ $.Values.config.postgresDb }}"
+          {{- end }}
+          startupProbe:
+            httpGet: {path: /health, port: 8000}
+            failureThreshold: 30
+            periodSeconds: 2
+          readinessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 5
+          livenessProbe:
+            httpGet: {path: /health, port: 8000}
+            periodSeconds: 15
+          resources: {{ toYaml $svc.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata: {name: {{ $svc.name }}, namespace: {{ $.Values.namespace }}}
+spec:
+  selector: {app: {{ $svc.name }}}
+  ports: [{port: 8000, targetPort: 8000}]
+---
+{{- end }}

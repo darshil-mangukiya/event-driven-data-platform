@@ -1,0 +1,31 @@
+{
+  "mode": "static_evidence",
+  "runtime_note": "Run docker compose and scripts/api_smoke_test.py for live health evidence.",
+  "services": [
+    {
+      "health_endpoint": "http://localhost:8001/health",
+      "service": "ingestion-service",
+      "status_source": "FastAPI /health"
+    },
+    {
+      "health_endpoint": "http://localhost:8002/health",
+      "service": "processing-service",
+      "status_source": "FastAPI /health"
+    },
+    {
+      "health_endpoint": "http://localhost:8003/health",
+      "service": "analytics-service",
+      "status_source": "FastAPI /health"
+    },
+    {
+      "health_endpoint": "http://localhost:8004/health",
+      "service": "metadata-service",
+      "status_source": "FastAPI /health"
+    },
+    {
+      "health_endpoint": "http://localhost:8006/health",
+      "service": "ops-console",
+      "status_source": "FastAPI /health"
+    }
+  ]
+}

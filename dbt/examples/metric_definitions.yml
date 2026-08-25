@@ -1,0 +1,28 @@
+metrics:
+  - name: net_revenue
+    label: Net Revenue
+    type: sum
+    model: ref('fct_tenant_daily_metrics')
+    sql: net_revenue
+    timestamp: metric_date
+    time_grains: [day, week, month]
+    dimensions: [tenant_id]
+
+  - name: payment_failure_rate
+    label: Payment Failure Rate
+    type: average
+    model: ref('fct_tenant_daily_metrics')
+    sql: payment_failure_rate
+    timestamp: metric_date
+    time_grains: [day, week, month]
+    dimensions: [tenant_id]
+
+  - name: product_net_revenue
+    label: Product Net Revenue
+    type: sum
+    model: ref('fct_product_performance')
+    sql: net_revenue
+    timestamp: order_date
+    time_grains: [day, week, month]
+    dimensions: [tenant_id, product_id, category]
+

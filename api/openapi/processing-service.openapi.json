@@ -1,0 +1,64 @@
+{
+  "info": {
+    "description": "Consumes Kafka events, writes processed tenant-scoped records, maintains aggregate tables, and records operational health.",
+    "title": "Data Platform Processing Service",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    },
+    "/metrics": {
+      "get": {
+        "operationId": "prometheus_metrics_metrics_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Prometheus Metrics"
+      }
+    },
+    "/system/status": {
+      "get": {
+        "operationId": "system_status_system_status_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response System Status System Status Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "System Status"
+      }
+    }
+  }
+}

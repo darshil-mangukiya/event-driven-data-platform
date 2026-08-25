@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "scenario": "ingestion API to Kafka consumer trace propagation",
+  "executed_at": "2026-09-03T17:45:16.956736Z",
+  "source_sha": "fbb464d72049913b1b67a72af410746f3d90bc3c",
+  "status": "EXECUTED AND VERIFIED LOCALLY",
+  "backend": "Jaeger all-in-one 1.60 via OTLP/HTTP",
+  "trace_id": "33e828ea6a15e24d82e4be1050d94a96",
+  "services": [
+    "ingestion-service",
+    "processing-service"
+  ],
+  "total_spans": 7,
+  "aggregate_span_duration_ms": 257.61,
+  "error_spans": 0,
+  "event_result": {
+    "topic": "platform.events.orders",
+    "partition": 0,
+    "offset": 0
+  },
+  "key_spans": [
+    {
+      "operation": "POST /events",
+      "span_id": "9661af90767998b6",
+      "parent_span_id": null,
+      "service": "ingestion-service",
+      "duration_ms": 215.112,
+      "http_status_code": 202
+    },
+    {
+      "operation": "kafka.publish",
+      "span_id": "75287976e67d441a",
+      "parent_span_id": "9661af90767998b6",
+      "service": "ingestion-service",
+      "duration_ms": 199.622,
+      "messaging_destination": "platform.events.orders"
+    },
+    {
+      "operation": "kafka.consume",
+      "span_id": "8d3d217ce799171f",
+      "parent_span_id": "9661af90767998b6",
+      "service": "processing-service",
+      "duration_ms": 35.238,
+      "messaging_source": "platform.events.orders"
+    }
+  ],
+  "propagation_result": "W3C trace context continued across Kafka with one trace ID across two services",
+  "limitations": [
+    "one synthetic event in a bounded local environment",
+    "PostgreSQL client spans are not instrumented",
+    "the trace backend is not part of the default Compose stack",
+    "no production or cloud execution is claimed"
+  ]
+}

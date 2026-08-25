@@ -1,0 +1,311 @@
+asyncapi: 3.0.0
+info:
+  title: Event-Driven Data Platform — Event Architecture
+  version: 1.0.0
+  description: "Generated from platform_shared.kafka.TOPIC_DEFINITIONS and contracts/registry.json by scripts/generate_asyncapi.py \u2014 do not hand-edit; regenerate instead. Documents actual Kafka topics, JSON Schema payload contracts, real publishers/subscribers, and the platform's declared BACKWARD compatibility policy."
+servers:
+  local:
+    host: "kafka:9092"
+    protocol: kafka
+    description: Local docker-compose Kafka broker (single broker, no TLS/SASL — see docs/LIMITATIONS.md)
+channels:
+  platform.events.orders:
+    address: platform.events.orders
+    description: Order lifecycle events partitioned by tenant_id + order_id where present.
+    messages:
+      order-eventsMessage:
+        $ref: "#/components/messages/order-eventsMessage"
+    x-owner: product-analytics
+    x-event-types:
+      - order.created
+      - order.updated
+    x-partitions: 12
+    x-retention-ms: 604800000
+    x-compatibility: BACKWARD
+  platform.events.payments:
+    address: platform.events.payments
+    description: Payment authorization, capture, failure, refund, and risk signals.
+    messages:
+      payment-eventsMessage:
+        $ref: "#/components/messages/payment-eventsMessage"
+    x-owner: finance-risk
+    x-event-types:
+      - payment.authorized
+      - payment.captured
+      - payment.failed
+    x-partitions: 12
+    x-retention-ms: 604800000
+    x-compatibility: BACKWARD
+  platform.events.users:
+    address: platform.events.users
+    description: Signup, activity, and churn-related behavior events.
+    messages:
+      user-eventsMessage:
+        $ref: "#/components/messages/user-eventsMessage"
+    x-owner: product-analytics
+    x-event-types:
+      - user.signed_up
+      - user.activity
+      - user.churn_signal
+    x-partitions: 12
+    x-retention-ms: 259200000
+    x-compatibility: BACKWARD
+  platform.events.products:
+    address: platform.events.products
+    description: Catalog state and inventory change events.
+    messages:
+      product-eventsMessage:
+        $ref: "#/components/messages/product-eventsMessage"
+    x-owner: operations
+    x-event-types:
+      - product.upserted
+      - product.inventory_changed
+    x-partitions: 6
+    x-retention-ms: 604800000
+    x-compatibility: BACKWARD
+  platform.events.system:
+    address: platform.events.system
+    description: Service health, pipeline status, and platform system events.
+    messages:
+      system-eventsMessage:
+        $ref: "#/components/messages/system-eventsMessage"
+    x-owner: platform
+    x-event-types:
+      - system.health
+      - system.alert
+    x-partitions: 6
+    x-retention-ms: 259200000
+    x-compatibility: BACKWARD
+  platform.events.retry:
+    address: platform.events.retry
+    description: Transient failures scheduled for retry with attempt metadata.
+    messages:
+      RetryEnvelopeMessage:
+        $ref: "#/components/messages/RetryEnvelopeMessage"
+    x-partitions: 6
+    x-retention-ms: 86400000
+  platform.events.dlq:
+    address: platform.events.dlq
+    description: Poison messages and validation failures retained for replay or audit.
+    messages:
+      DlqEnvelopeMessage:
+        $ref: "#/components/messages/DlqEnvelopeMessage"
+    x-partitions: 6
+    x-retention-ms: 1209600000
+operations:
+  publish_order_events_by_ingestion_service:
+    action: send
+    channel:
+      $ref: "#/channels/platform.events.orders"
+    summary: ingestion-service publishes order-events
+  consume_order_events_by_processing_service:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.orders"
+    summary: processing-service consumes order-events
+  consume_order_events_by_spark_streaming:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.orders"
+    summary: spark.streaming consumes order-events
+  publish_payment_events_by_ingestion_service:
+    action: send
+    channel:
+      $ref: "#/channels/platform.events.payments"
+    summary: ingestion-service publishes payment-events
+  consume_payment_events_by_processing_service:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.payments"
+    summary: processing-service consumes payment-events
+  consume_payment_events_by_spark_streaming:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.payments"
+    summary: spark.streaming consumes payment-events
+  publish_user_events_by_ingestion_service:
+    action: send
+    channel:
+      $ref: "#/channels/platform.events.users"
+    summary: ingestion-service publishes user-events
+  consume_user_events_by_processing_service:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.users"
+    summary: processing-service consumes user-events
+  consume_user_events_by_spark_streaming:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.users"
+    summary: spark.streaming consumes user-events
+  publish_product_events_by_ingestion_service:
+    action: send
+    channel:
+      $ref: "#/channels/platform.events.products"
+    summary: ingestion-service publishes product-events
+  consume_product_events_by_processing_service:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.products"
+    summary: processing-service consumes product-events
+  publish_system_events_by_ingestion_service:
+    action: send
+    channel:
+      $ref: "#/channels/platform.events.system"
+    summary: ingestion-service publishes system-events
+  consume_system_events_by_processing_service:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.system"
+    summary: processing-service consumes system-events
+  publish_retry_by_processing_service:
+    action: send
+    channel:
+      $ref: "#/channels/platform.events.retry"
+    summary: processing-service publishes to platform.events.retry
+  consume_retry_by_processing_service:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.retry"
+    summary: processing-service consumes platform.events.retry
+  publish_dlq_by_processing_service:
+    action: send
+    channel:
+      $ref: "#/channels/platform.events.dlq"
+    summary: processing-service publishes to platform.events.dlq
+  publish_dlq_by_spark_streaming:
+    action: send
+    channel:
+      $ref: "#/channels/platform.events.dlq"
+    summary: spark.streaming publishes to platform.events.dlq
+  consume_dlq_by_reliability_scripts_dlq_tool_py_replay:
+    action: receive
+    channel:
+      $ref: "#/channels/platform.events.dlq"
+    summary: reliability (scripts/dlq_tool.py replay) consumes platform.events.dlq
+components:
+  messages:
+    order-eventsMessage:
+      name: order-eventsMessage
+      title: order-events
+      summary: Order lifecycle events partitioned by tenant_id + order_id where present.
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          trace_id:
+            type: string
+            description: W3C-style trace correlation id, also carried in the event envelope
+          correlation_id:
+            type: string
+          tenant_id:
+            type: string
+      payload:
+        $ref: ../schemas/v1/order-payload.schema.json
+      examples:
+        -
+          summary: order.created example event_type
+          payload:
+            event_type: order.created
+    payment-eventsMessage:
+      name: payment-eventsMessage
+      title: payment-events
+      summary: Payment authorization, capture, failure, refund, and risk signals.
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          trace_id:
+            type: string
+            description: W3C-style trace correlation id, also carried in the event envelope
+          correlation_id:
+            type: string
+          tenant_id:
+            type: string
+      payload:
+        $ref: ../schemas/v1/payment-payload.schema.json
+      examples:
+        -
+          summary: payment.authorized example event_type
+          payload:
+            event_type: payment.authorized
+    user-eventsMessage:
+      name: user-eventsMessage
+      title: user-events
+      summary: Signup, activity, and churn-related behavior events.
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          trace_id:
+            type: string
+            description: W3C-style trace correlation id, also carried in the event envelope
+          correlation_id:
+            type: string
+          tenant_id:
+            type: string
+      payload:
+        $ref: ../schemas/v1/user-payload.schema.json
+      examples:
+        -
+          summary: user.signed_up example event_type
+          payload:
+            event_type: user.signed_up
+    product-eventsMessage:
+      name: product-eventsMessage
+      title: product-events
+      summary: Catalog state and inventory change events.
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          trace_id:
+            type: string
+            description: W3C-style trace correlation id, also carried in the event envelope
+          correlation_id:
+            type: string
+          tenant_id:
+            type: string
+      payload:
+        $ref: ../schemas/v1/product-payload.schema.json
+      examples:
+        -
+          summary: product.upserted example event_type
+          payload:
+            event_type: product.upserted
+    system-eventsMessage:
+      name: system-eventsMessage
+      title: system-events
+      summary: Service health, pipeline status, and platform system events.
+      contentType: application/json
+      headers:
+        type: object
+        properties:
+          trace_id:
+            type: string
+            description: W3C-style trace correlation id, also carried in the event envelope
+          correlation_id:
+            type: string
+          tenant_id:
+            type: string
+      payload:
+        $ref: ../schemas/v1/system-payload.schema.json
+      examples:
+        -
+          summary: system.health example event_type
+          payload:
+            event_type: system.health
+    RetryEnvelopeMessage:
+      name: RetryEnvelopeMessage
+      title: RetryEnvelopeMessage
+      summary: Transient failures scheduled for retry with attempt metadata.
+      contentType: application/json
+      payload:
+        $ref: ../schemas/v1/event-envelope.schema.json
+    DlqEnvelopeMessage:
+      name: DlqEnvelopeMessage
+      title: DlqEnvelopeMessage
+      summary: Poison messages and validation failures retained for replay or audit.
+      contentType: application/json
+      payload:
+        $ref: ../schemas/v1/event-envelope.schema.json

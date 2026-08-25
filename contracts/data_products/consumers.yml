@@ -1,0 +1,67 @@
+# Modeled Consumer Catalog
+#
+# These are MODELED internal consumers created for local demonstration —
+# domain-model metadata maintained with the platform. See docs/consumer-requirements.md
+# for the full disclaimer and narrative context.
+#
+# Each consumer is referenced by id from contracts/data_products/registry.yml
+# (modeled_consumers) and contracts/data_products/requirements.yml (consumer_id).
+
+registry_version: 1
+
+consumers:
+  - consumer_id: finance
+    name: Finance
+    modeled_responsibility: >-
+      Tracks tenant revenue, order volume, and payment health to support
+      modeled revenue reporting and reconciliation workflows.
+    business_questions:
+      - "What is revenue for a tenant and period?"
+      - "How fresh is the result?"
+      - "Does serving revenue reconcile to processed orders?"
+      - "What is the payment success/failure rate for a tenant?"
+    required_products: [revenue, payment_health]
+
+  - consumer_id: product
+    name: Product
+    modeled_responsibility: >-
+      Tracks customer activity, product performance, and engagement signals
+      to support modeled product-analytics workflows.
+    business_questions:
+      - "Which products are performing well?"
+      - "How is customer/product activity changing?"
+      - "Which products generate the most activity or revenue?"
+    required_products: [customer_activity, product_performance]
+
+  - consumer_id: marketing
+    name: Marketing
+    modeled_responsibility: >-
+      Tracks the marketing-performance proxy available from modeled event
+      data — a local approximation, not a production attribution model.
+    business_questions:
+      - "What marketing-performance proxy is available from the modeled event data?"
+    required_products: [marketing_performance]
+
+  - consumer_id: operations
+    name: Operations
+    modeled_responsibility: >-
+      Tracks event processing health, data-product freshness, processing
+      lag, and DLQ volume to support modeled platform-operations workflows.
+    business_questions:
+      - "Is event processing healthy?"
+      - "Are data products fresh?"
+      - "Is processing lag increasing?"
+      - "Are failures accumulating in the DLQ?"
+    required_products: [platform_health]
+
+  - consumer_id: risk
+    name: Risk
+    modeled_responsibility: >-
+      Tracks payment failures and platform health signals for
+      abnormal-behavior review, mapped only to capabilities the repository
+      implements (payment failure rate, alerts, reliability
+      exercise outcomes).
+    business_questions:
+      - "Are payment failures or platform signals indicating abnormal behavior?"
+      - "Which alerts require review?"
+    required_products: [payment_health, platform_health]

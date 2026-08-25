@@ -1,0 +1,35 @@
+{
+  "sample_artifact": true,
+  "tenant_id": "tenant_demo",
+  "generated_at": "2026-05-25T16:45:00Z",
+  "panels": {
+    "revenue": {
+      "metric": "revenue",
+      "period": "last_7_days",
+      "net_revenue": 184230.75,
+      "gross_revenue": 201884.0,
+      "order_count": 2187,
+      "average_order_value": 84.24
+    },
+    "customers": {
+      "metric": "customers",
+      "period": "last_7_days",
+      "new_users": 742,
+      "active_users": 18421,
+      "churn_signal_count": 94
+    },
+    "payments": {
+      "metric": "payment_success_rate",
+      "success_count": 2141,
+      "failure_count": 46,
+      "success_rate": 0.979
+    },
+    "tenant_health": {
+      "metric": "tenant_health_score",
+      "score": 94.8,
+      "status": "healthy",
+      "drivers": ["low Kafka lag", "high cache hit rate", "payment failures below alert threshold"]
+    }
+  },
+  "local_scope_note": "Static sample payload matching the API-first analytics model. Use the demo dashboard service for live local views."
+}

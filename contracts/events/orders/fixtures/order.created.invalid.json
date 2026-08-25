@@ -1,0 +1,8 @@
+{
+  "order_id": "ord_contract_bad",
+  "customer_id": "cust_contract_001",
+  "quantity": 0,
+  "unit_price": -5.0,
+  "status": "created",
+  "channel": "web"
+}

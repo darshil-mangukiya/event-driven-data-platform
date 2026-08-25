@@ -1,0 +1,21 @@
+{
+  "batch_size": 200,
+  "batches": 50,
+  "benchmark_name": "small_10k",
+  "created_at": "2026-09-03T02:42:04.117148+00:00",
+  "elapsed_seconds": 5.7203,
+  "events": 10000,
+  "events_per_second": 1748.1545,
+  "failure_batches": 0,
+  "failure_rate": 0.0,
+  "host_cpu_count": 14,
+  "host_platform": "macOS-26.6.2-arm64-arm-64bit",
+  "local_scope_note": "Local benchmark runner; production-scale figures require distributed load generation.",
+  "max_latency_ms": 5674.3815,
+  "p50_latency_ms": 5493.6405,
+  "p95_latency_ms": 5607.1563,
+  "p99_latency_ms": 5674.3815,
+  "seed": 62020,
+  "target_url": "http://localhost:8001",
+  "tenant_id": "tenant_demo"
+}

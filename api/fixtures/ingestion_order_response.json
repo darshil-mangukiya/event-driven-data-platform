@@ -1,0 +1,12 @@
+{
+  "causation_id": null,
+  "correlation_id": "corr-checkout-1001",
+  "event_id": "idem_d29298d823e4e7e23fef539d6e94ca4c",
+  "event_type": "order.created",
+  "idempotency_key": "checkout-ord-1001-created",
+  "offset": 1024,
+  "partition": 2,
+  "tenant_id": "tenant_demo",
+  "topic": "platform.events.orders",
+  "trace_id": "trace-demo-1001"
+}

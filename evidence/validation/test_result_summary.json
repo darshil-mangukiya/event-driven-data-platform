@@ -1,0 +1,10 @@
+{
+  "commands": [
+    "pytest -q",
+    "ruff check .",
+    "python -m compileall services scripts tests platform_cli",
+    "PYTHONPATH=services/shared python scripts/validate_event_contracts.py",
+    "python -m platform_cli health check --dry-run --pretty"
+  ],
+  "mode": "command_evidence"
+}

@@ -1,0 +1,13 @@
+FROM bitnamilegacy/spark:3.5.1
+
+USER root
+WORKDIR /opt/data-platform
+COPY spark /opt/data-platform/spark
+# The legacy base image runs as uid 1001 but has no passwd entry. Hadoop's
+# UnixLoginModule requires a resolvable local username and otherwise aborts
+# Spark before the streaming query starts.
+RUN echo 'spark:x:1001:0:Spark runtime:/tmp:/sbin/nologin' >> /etc/passwd
+# Keep the streaming image small: these are the only Python dependencies the
+# Kafka -> PostgreSQL job imports beyond PySpark from the base image.
+RUN pip install --no-cache-dir prometheus-client==0.20.0 psycopg2-binary==2.9.9
+USER 1001

@@ -1,0 +1,10 @@
+{
+  "cases": [
+    {
+      "name": "order_payload_v1_to_v2_adds_optional_fields",
+      "old_schema": "schemas/v1/order-payload.schema.json",
+      "new_schema": "schemas/v2/order-payload.schema.json",
+      "expected": "compatible"
+    }
+  ]
+}

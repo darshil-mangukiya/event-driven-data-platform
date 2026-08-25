@@ -1,0 +1,14 @@
+# Bundles the real database/init/*.sql files into the chart itself via
+# Helm's .Files.Glob, so `helm install` alone provisions the exact same
+# schema/seed data as `docker compose up` — no separate imperative
+# `kubectl create configmap --from-file` step needed.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-scripts
+  namespace: {{ .Values.namespace }}
+data:
+{{- range $path, $_ := .Files.Glob "files/init/*.sql" }}
+  {{ base $path }}: |
+{{ $.Files.Get $path | indent 4 }}
+{{- end }}

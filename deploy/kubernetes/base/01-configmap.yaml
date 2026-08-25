@@ -1,0 +1,32 @@
+# Non-secret configuration only — mirrors .env.example's non-secret keys.
+# Same rationale as the local-only AUTH_MODE=dev_compat opt-in documented
+# in .env.example/docs/security.md: this is local kind-cluster demo
+# configuration, not a production posture claim.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cloudscale-config
+  namespace: cloudscale
+data:
+  ENVIRONMENT: "local"
+  LOG_LEVEL: "INFO"
+  POSTGRES_HOST: "postgres"
+  POSTGRES_PORT: "5432"
+  POSTGRES_DB: "data_platform"
+  # Cluster-wide default only — the `platform` PostgreSQL superuser, used
+  # for postgres bootstrap and anything that doesn't need a scoped
+  # identity. processing-service, analytics-service, and metadata-service
+  # each override this in their own Deployment's `env:` (which wins over
+  # this envFrom) with a non-superuser role — see 20-services.yaml and
+  # evidence/validation/application-rls-runtime-verification.md.
+  DATABASE_URL: "postgresql://platform:platform@postgres:5432/data_platform"
+  REDIS_URL: "redis://redis:6379/0"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  KAFKA_CLIENT_ID: "data-platform-k8s"
+  KAFKA_CONSUMER_GROUP: "processing-service"
+  KAFKA_ENABLE_CONSUMER: "true"
+  JWT_ISSUER: "platform.local"
+  JWT_AUDIENCE: "data-platform"
+  DEFAULT_CACHE_TTL_SECONDS: "120"
+  RATE_LIMIT_REQUESTS_PER_MINUTE: "120"
+  AUTH_MODE: "dev_compat"
